@@ -1,4 +1,4 @@
-package com.example.staybooking.infra;
+package com.example.staybooking.application.stock;
 
 /**
  * Redis admission 결과 (docs/03 [1], docs/04).

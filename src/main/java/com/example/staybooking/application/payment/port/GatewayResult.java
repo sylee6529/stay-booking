@@ -1,4 +1,4 @@
-package com.example.staybooking.infra.payment;
+package com.example.staybooking.application.payment.port;
 
 public record GatewayResult(boolean approved, String transactionId, String reason) {
 

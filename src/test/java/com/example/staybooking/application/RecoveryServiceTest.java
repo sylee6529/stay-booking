@@ -7,7 +7,7 @@ import com.example.staybooking.domain.booking.PgStatus;
 import com.example.staybooking.domain.payment.PaymentRepository;
 import com.example.staybooking.domain.product.PromotionProduct;
 import com.example.staybooking.domain.product.PromotionProductRepository;
-import com.example.staybooking.infra.StockGate;
+import com.example.staybooking.application.stock.StockGatePort;
 import com.example.staybooking.support.IntegrationTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,7 @@ class RecoveryServiceTest extends IntegrationTestSupport {
     private StockSyncService stockSyncService;
 
     @Autowired
-    private StockGate stockGate;
+    private StockGatePort stockGate;
 
     @Autowired
     private RedisConnectionFactory redisConnectionFactory;
@@ -163,7 +163,7 @@ class RecoveryServiceTest extends IntegrationTestSupport {
                 ready.countDown();
                 try {
                     start.await();
-                    compensationService.compensate(saved.getId(), com.example.staybooking.api.error.ErrorCode.PAYMENT_DECLINED,
+                    compensationService.compensate(saved.getId(), com.example.staybooking.application.error.ErrorCode.PAYMENT_DECLINED,
                             saved.getIdempotencyKey());
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();

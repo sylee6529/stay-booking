@@ -35,11 +35,11 @@ Redis가 틀려도(장애, drift) DB의 unique constraint와 조건부 UPDATE가
 - 서버는 무상태(stateless). 모든 경합 제어는 Redis(원자 연산)와 MySQL(제약 조건)에서만 일어난다.
 - 00시 트래픽 중 "어차피 실패할 요청"(재고 초과분)은 Redis admission에서 밀리초로 탈락시켜 DB write에 도달하지 않게 한다.
 
-## 코드 레이어 구조 (안)
+## 코드 레이어 구조
 
 ```
 com.example.staybooking
-├── api/            # Controller, DTO, 예외 → HTTP 매핑. 도메인 로직 없음
+├── api/            # HTTP adapter. Controller, HTTP DTO, 예외 → HTTP 매핑
 ├── application/    # 유스케이스 오케스트레이션
 │   ├── BookingService        # 예약 흐름 전체 (트랜잭션 밖에서 단계 조율)
 │   ├── BookingFinalizer      # 확정 트랜잭션(TX1) 단독 담당
@@ -47,14 +47,18 @@ com.example.staybooking
 │   ├── CheckoutService
 │   ├── RecoveryService       # 미완결 요청 스캔/수렴
 │   ├── StockSyncService      # DB → Redis 재고 재계산 (단방향)
-│   └── payment/              # PaymentOrchestrator + PaymentProcessor 전략
+│   ├── booking/, checkout/   # application command/result
+│   ├── stock/                # Redis admission port
+│   └── payment/              # PaymentOrchestrator + PaymentProcessor + PG port
 ├── domain/         # 엔티티, 리포지토리, 상태 enum. 인프라 비의존
-└── infra/          # Redis 게이트(StockGate, IdempotencyGate), 외부 결제 시뮬레이터
+└── infra/          # Redis/PG/scheduler adapter
 ```
 
-- **도메인 ↔ 인프라 분리**: `BookingService`는 `StockGate`(재고 admission 추상)와 `PaymentOrchestrator`만 알고,
-  Lua 스크립트·Lettuce·시뮬레이터 같은 구현은 infra에 격리한다.
+- **API ↔ application 분리**: Controller가 HTTP DTO를 application command/result로 변환한다. application은 `api` 패키지를 의존하지 않는다.
+- **application ↔ infra 분리**: `BookingService`는 `StockGatePort`와 `PaymentOrchestrator`만 알고,
+  Lua 스크립트·Lettuce·시뮬레이터·Resilience4j 구현은 infra adapter에 격리한다.
 - **결제 수단 비의존**: BookingService → PaymentOrchestrator → PaymentProcessor(전략) 방향으로만 의존.
+- **경계 회귀 방지**: ArchUnit 테스트가 `domain -> api/application/infra`와 `application -> api/infra` 의존을 금지한다.
 
 ## 기술 선택
 

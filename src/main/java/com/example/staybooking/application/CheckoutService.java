@@ -1,8 +1,8 @@
 package com.example.staybooking.application;
 
-import com.example.staybooking.api.dto.CheckoutResponse;
-import com.example.staybooking.api.error.BusinessException;
-import com.example.staybooking.api.error.ErrorCode;
+import com.example.staybooking.application.checkout.CheckoutResult;
+import com.example.staybooking.application.error.BusinessException;
+import com.example.staybooking.application.error.ErrorCode;
 import com.example.staybooking.domain.point.UserPointsRepository;
 import com.example.staybooking.domain.product.PromotionProduct;
 import com.example.staybooking.domain.product.PromotionProductRepository;
@@ -28,7 +28,7 @@ public class CheckoutService {
     }
 
     @Transactional(readOnly = true)
-    public CheckoutResponse getCheckout(long productId, long userId) {
+    public CheckoutResult getCheckout(long productId, long userId) {
         PromotionProduct product = products.findById(productId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
 
@@ -37,7 +37,7 @@ public class CheckoutService {
                 .map(p -> p.getBalance())
                 .orElse(0L);
 
-        return new CheckoutResponse(
+        return new CheckoutResult(
                 product.getId(),
                 product.getName(),
                 product.getPrice(),

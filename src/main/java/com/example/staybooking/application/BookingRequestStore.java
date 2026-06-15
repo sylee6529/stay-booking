@@ -1,8 +1,8 @@
 package com.example.staybooking.application;
 
-import com.example.staybooking.api.dto.BookingCreateRequest;
-import com.example.staybooking.api.error.BusinessException;
-import com.example.staybooking.api.error.ErrorCode;
+import com.example.staybooking.application.booking.BookingCreateCommand;
+import com.example.staybooking.application.error.BusinessException;
+import com.example.staybooking.application.error.ErrorCode;
 import com.example.staybooking.domain.booking.BookingRequest;
 import com.example.staybooking.domain.booking.BookingRequestRepository;
 import com.example.staybooking.domain.booking.BookingStatus;
@@ -32,7 +32,7 @@ public class BookingRequestStore {
 
     @Transactional(noRollbackFor = BusinessException.class)
     public BookingRequest createAndReserve(String idempotencyKey, String requestHash,
-                                           BookingCreateRequest request, long amount) {
+                                           BookingCreateCommand request, long amount) {
         LocalDateTime now = LocalDateTime.now();
         BookingRequest saved = bookingRequests.saveAndFlush(BookingRequest.received(
                 idempotencyKey,
@@ -84,10 +84,10 @@ public class BookingRequestStore {
                 {"code":"%s","message":"%s","traceId":"%s"}
                 """.formatted(code.name(), reason == null ? code.getMessage() : reason, traceId).trim();
         bookingRequests.failTerminal(bookingRequestId, BookingStatus.FAILED, PgStatus.DECLINED,
-                reason, code.getStatus().value(), body, LocalDateTime.now());
+                reason, code.getHttpStatus(), body, LocalDateTime.now());
     }
 
-    private String methodsLabel(BookingCreateRequest request) {
+    private String methodsLabel(BookingCreateCommand request) {
         return request.paymentMethods().stream()
                 .sorted(Comparator.comparing(Enum::name))
                 .map(Enum::name)

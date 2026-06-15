@@ -1,6 +1,6 @@
 package com.example.staybooking.application.payment;
 
-import com.example.staybooking.api.error.ErrorCode;
+import com.example.staybooking.application.error.ErrorCode;
 
 /**
  * 결제 실행 결과. 성공 시 {@code payments} 행 기록에 필요한 값(거래 식별자, 금액 분배, 수단 라벨)을 담는다.

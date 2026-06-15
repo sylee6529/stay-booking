@@ -1,6 +1,6 @@
 package com.example.staybooking.application.payment;
 
-import com.example.staybooking.api.error.ErrorCode;
+import com.example.staybooking.application.error.ErrorCode;
 import com.example.staybooking.domain.payment.PaymentMethod;
 import com.example.staybooking.domain.payment.PointHistory;
 import com.example.staybooking.domain.payment.PointHistoryRepository;

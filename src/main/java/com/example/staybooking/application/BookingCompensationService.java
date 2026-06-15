@@ -1,6 +1,6 @@
 package com.example.staybooking.application;
 
-import com.example.staybooking.api.error.ErrorCode;
+import com.example.staybooking.application.error.ErrorCode;
 import com.example.staybooking.application.payment.PaymentContext;
 import com.example.staybooking.application.payment.PointPaymentProcessor;
 import com.example.staybooking.domain.booking.BookingRequest;
@@ -9,7 +9,7 @@ import com.example.staybooking.domain.booking.BookingStatus;
 import com.example.staybooking.domain.booking.PgStatus;
 import com.example.staybooking.domain.booking.StockRestoreStatus;
 import com.example.staybooking.domain.product.PromotionProductRepository;
-import com.example.staybooking.infra.StockGate;
+import com.example.staybooking.application.stock.StockGatePort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,11 +19,11 @@ import java.time.LocalDateTime;
 public class BookingCompensationService {
 
     private final PromotionProductRepository products;
-    private final StockGate stockGate;
+    private final StockGatePort stockGate;
     private final BookingRequestRepository bookingRequests;
     private final PointPaymentProcessor pointPaymentProcessor;
 
-    public BookingCompensationService(PromotionProductRepository products, StockGate stockGate,
+    public BookingCompensationService(PromotionProductRepository products, StockGatePort stockGate,
                                       BookingRequestRepository bookingRequests,
                                       PointPaymentProcessor pointPaymentProcessor) {
         this.products = products;
@@ -73,6 +73,6 @@ public class BookingCompensationService {
                 {"code":"%s","message":"%s","traceId":"%s"}
                 """.formatted(responseCode.name(), responseCode.getMessage(), traceId).trim();
         bookingRequests.failTerminal(compensating.getId(), BookingStatus.FAILED, PgStatus.DECLINED,
-                compensating.getFailureReason(), responseCode.getStatus().value(), body, LocalDateTime.now());
+                compensating.getFailureReason(), responseCode.getHttpStatus(), body, LocalDateTime.now());
     }
 }

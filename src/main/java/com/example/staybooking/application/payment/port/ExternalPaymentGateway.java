@@ -1,4 +1,4 @@
-package com.example.staybooking.infra.payment;
+package com.example.staybooking.application.payment.port;
 
 /**
  * 외부 결제 게이트웨이 추상 (docs/06). 실제 PG 연동은 범위 외이며 시뮬레이터로 대체하되,

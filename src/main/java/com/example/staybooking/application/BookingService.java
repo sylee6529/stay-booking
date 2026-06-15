@@ -1,9 +1,9 @@
 package com.example.staybooking.application;
 
-import com.example.staybooking.api.dto.BookingCreateRequest;
-import com.example.staybooking.api.dto.BookingCreateResponse;
-import com.example.staybooking.api.error.BusinessException;
-import com.example.staybooking.api.error.ErrorCode;
+import com.example.staybooking.application.booking.BookingCreateCommand;
+import com.example.staybooking.application.booking.BookingCreateResult;
+import com.example.staybooking.application.error.BusinessException;
+import com.example.staybooking.application.error.ErrorCode;
 import com.example.staybooking.application.payment.PaymentCommand;
 import com.example.staybooking.application.payment.PaymentContext;
 import com.example.staybooking.application.payment.PaymentExecution;
@@ -15,9 +15,9 @@ import com.example.staybooking.domain.booking.BookingRequestRepository;
 import com.example.staybooking.domain.booking.BookingStatus;
 import com.example.staybooking.domain.product.PromotionProduct;
 import com.example.staybooking.domain.product.PromotionProductRepository;
-import com.example.staybooking.infra.AdmissionResult;
-import com.example.staybooking.infra.StockGate;
-import com.example.staybooking.infra.StockGateUnavailableException;
+import com.example.staybooking.application.stock.AdmissionResult;
+import com.example.staybooking.application.stock.StockGatePort;
+import com.example.staybooking.application.stock.StockGateUnavailableException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -29,7 +29,7 @@ public class BookingService {
     private final PromotionProductRepository products;
     private final BookingRequestRepository bookingRequests;
     private final BookingRepository bookings;
-    private final StockGate stockGate;
+    private final StockGatePort stockGate;
     private final PaymentOrchestrator paymentOrchestrator;
     private final BookingRequestHasher hasher;
     private final BookingRequestStore requestStore;
@@ -37,7 +37,7 @@ public class BookingService {
     private final BookingCompensationService compensationService;
 
     public BookingService(PromotionProductRepository products, BookingRequestRepository bookingRequests,
-                          BookingRepository bookings, StockGate stockGate, PaymentOrchestrator paymentOrchestrator,
+                          BookingRepository bookings, StockGatePort stockGate, PaymentOrchestrator paymentOrchestrator,
                           BookingRequestHasher hasher, BookingRequestStore requestStore,
                           BookingFinalizer finalizer, BookingCompensationService compensationService) {
         this.products = products;
@@ -51,7 +51,7 @@ public class BookingService {
         this.compensationService = compensationService;
     }
 
-    public BookingCreateResponse create(String idempotencyKey, BookingCreateRequest request) {
+    public BookingCreateResult create(String idempotencyKey, BookingCreateCommand request) {
         PromotionProduct product = products.findById(request.productId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
         if (!product.isOpen(LocalDateTime.now())) {
@@ -99,7 +99,7 @@ public class BookingService {
         }
     }
 
-    private BookingCreateResponse replayOrInProgress(long userId, String idempotencyKey, String requestHash) {
+    private BookingCreateResult replayOrInProgress(long userId, String idempotencyKey, String requestHash) {
         BookingRequest existing = bookingRequests.findByUserIdAndIdempotencyKey(userId, idempotencyKey)
                 .orElseThrow(() -> new BusinessException(ErrorCode.REQUEST_IN_PROGRESS));
         if (!existing.getRequestHash().equals(requestHash)) {
@@ -111,12 +111,12 @@ public class BookingService {
         if (existing.getStatus() == BookingStatus.CONFIRMED) {
             Booking booking = bookings.findByBookingRequestId(existing.getId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.REQUEST_IN_PROGRESS));
-            return new BookingCreateResponse(booking.getId(), "CONFIRMED");
+            return new BookingCreateResult(booking.getId(), "CONFIRMED");
         }
         throw new BusinessException(ErrorCode.REQUEST_IN_PROGRESS);
     }
 
-    private PaymentCommand paymentCommand(BookingCreateRequest request, long amount, long bookingRequestId) {
+    private PaymentCommand paymentCommand(BookingCreateCommand request, long amount, long bookingRequestId) {
         return new PaymentCommand(
                 request.paymentMethods(),
                 amount,

@@ -1,7 +1,5 @@
 package com.example.staybooking.application;
-
-import com.example.staybooking.api.dto.BookingCreateResponse;
-import com.example.staybooking.api.error.ErrorCode;
+import com.example.staybooking.application.error.ErrorCode;
 import com.example.staybooking.application.payment.PaymentExecution;
 import com.example.staybooking.config.AppProperties;
 import com.example.staybooking.domain.booking.BookingRequest;
@@ -53,7 +51,7 @@ public class RecoveryService {
                     """.formatted(ErrorCode.RESERVATION_EXPIRED.name(),
                     ErrorCode.RESERVATION_EXPIRED.getMessage(), request.getIdempotencyKey()).trim();
             bookingRequests.failTerminal(request.getId(), BookingStatus.REJECTED, PgStatus.NONE,
-                    "RESERVATION_EXPIRED", ErrorCode.RESERVATION_EXPIRED.getStatus().value(), body, now);
+                    "RESERVATION_EXPIRED", ErrorCode.RESERVATION_EXPIRED.getHttpStatus(), body, now);
         }
     }
 
@@ -70,7 +68,7 @@ public class RecoveryService {
                     request.getAmount(),
                     request.getPointAmount(),
                     request.getAmount() - request.getPointAmount());
-            BookingCreateResponse ignored = finalizer.confirm(request, product, payment, request.getIdempotencyKey());
+            finalizer.confirm(request, product, payment, request.getIdempotencyKey());
         }
     }
 

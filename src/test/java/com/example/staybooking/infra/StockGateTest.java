@@ -1,6 +1,8 @@
 package com.example.staybooking.infra;
 
 import com.example.staybooking.application.StockSyncService;
+import com.example.staybooking.application.stock.AdmissionResult;
+import com.example.staybooking.application.stock.StockGateUnavailableException;
 import com.example.staybooking.domain.product.PromotionProduct;
 import com.example.staybooking.domain.product.PromotionProductRepository;
 import com.example.staybooking.support.IntegrationTestSupport;

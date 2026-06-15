@@ -1,4 +1,4 @@
-package com.example.staybooking.infra;
+package com.example.staybooking.application.stock;
 
 /**
  * Redis 재고 게이트를 신뢰할 수 없는 상태 — Fail-Closed 신호 (불변식 #6, docs/07 F1).

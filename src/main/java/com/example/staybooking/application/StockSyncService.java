@@ -2,7 +2,7 @@ package com.example.staybooking.application;
 
 import com.example.staybooking.domain.product.PromotionProduct;
 import com.example.staybooking.domain.product.PromotionProductRepository;
-import com.example.staybooking.infra.StockGate;
+import com.example.staybooking.application.stock.StockGatePort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,9 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class StockSyncService {
 
     private final PromotionProductRepository products;
-    private final StockGate stockGate;
+    private final StockGatePort stockGate;
 
-    public StockSyncService(PromotionProductRepository products, StockGate stockGate) {
+    public StockSyncService(PromotionProductRepository products, StockGatePort stockGate) {
         this.products = products;
         this.stockGate = stockGate;
     }

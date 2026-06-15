@@ -1,4 +1,4 @@
-package com.example.staybooking.infra.payment;
+package com.example.staybooking.application.payment.port;
 
 import com.example.staybooking.domain.payment.PaymentMethod;
 

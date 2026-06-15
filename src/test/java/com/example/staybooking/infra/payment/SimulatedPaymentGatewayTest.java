@@ -1,5 +1,7 @@
 package com.example.staybooking.infra.payment;
 
+import com.example.staybooking.application.payment.port.GatewayRequest;
+import com.example.staybooking.application.payment.port.GatewayResult;
 import com.example.staybooking.config.AppProperties;
 import org.junit.jupiter.api.Test;
 

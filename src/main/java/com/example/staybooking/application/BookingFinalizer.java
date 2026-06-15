@@ -1,8 +1,8 @@
 package com.example.staybooking.application;
 
-import com.example.staybooking.api.dto.BookingCreateResponse;
-import com.example.staybooking.api.error.BusinessException;
-import com.example.staybooking.api.error.ErrorCode;
+import com.example.staybooking.application.booking.BookingCreateResult;
+import com.example.staybooking.application.error.BusinessException;
+import com.example.staybooking.application.error.ErrorCode;
 import com.example.staybooking.domain.booking.Booking;
 import com.example.staybooking.domain.booking.BookingRepository;
 import com.example.staybooking.domain.booking.BookingRequest;
@@ -35,11 +35,11 @@ public class BookingFinalizer {
     }
 
     @Transactional
-    public BookingCreateResponse confirm(BookingRequest request, PromotionProduct product,
-                                         PaymentExecution paymentExecution, String traceId) {
+    public BookingCreateResult confirm(BookingRequest request, PromotionProduct product,
+                                       PaymentExecution paymentExecution, String traceId) {
         Booking existing = bookings.findByBookingRequestId(request.getId()).orElse(null);
         if (existing != null) {
-            return new BookingCreateResponse(existing.getId(), existing.getStatus());
+            return new BookingCreateResult(existing.getId(), existing.getStatus());
         }
 
         int confirmed = products.confirmOne(product.getId());
@@ -67,13 +67,13 @@ public class BookingFinalizer {
                 "APPROVED",
                 now));
 
-        BookingCreateResponse response = new BookingCreateResponse(booking.getId(), "CONFIRMED");
+        BookingCreateResult response = new BookingCreateResult(booking.getId(), "CONFIRMED");
         bookingRequests.complete(request.getId(), BookingStatus.CONFIRMED, 200,
                 responseJson(response), now);
         return response;
     }
 
-    private String responseJson(BookingCreateResponse response) {
+    private String responseJson(BookingCreateResult response) {
         return """
                 {"bookingId":%d,"status":"%s"}
                 """.formatted(response.bookingId(), response.status()).trim();

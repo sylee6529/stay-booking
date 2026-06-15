@@ -2,6 +2,7 @@ package com.example.staybooking.api;
 
 import com.example.staybooking.api.dto.CheckoutResponse;
 import com.example.staybooking.application.CheckoutService;
+import com.example.staybooking.application.checkout.CheckoutResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -20,6 +21,14 @@ public class CheckoutController {
     /** GET /api/checkout?productId={id}&userId={id} — 주문서 조회 (재고 미차감). */
     @GetMapping("/checkout")
     public CheckoutResponse checkout(@RequestParam long productId, @RequestParam long userId) {
-        return checkoutService.getCheckout(productId, userId);
+        CheckoutResult result = checkoutService.getCheckout(productId, userId);
+        return new CheckoutResponse(
+                result.productId(),
+                result.name(),
+                result.price(),
+                result.checkinDate(),
+                result.checkoutDate(),
+                result.open(),
+                result.pointBalance());
     }
 }

@@ -1,6 +1,6 @@
 package com.example.staybooking.application.payment;
 
-import com.example.staybooking.api.error.ErrorCode;
+import com.example.staybooking.application.error.ErrorCode;
 
 /**
  * 단일 결제 수단의 승인 결과.

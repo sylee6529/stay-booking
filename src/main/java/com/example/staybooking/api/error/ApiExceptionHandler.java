@@ -1,5 +1,7 @@
 package com.example.staybooking.api.error;
 
+import com.example.staybooking.application.error.BusinessException;
+import com.example.staybooking.application.error.ErrorCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -16,7 +18,7 @@ public class ApiExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBusiness(BusinessException e) {
         ErrorCode code = e.getErrorCode();
         ErrorResponse body = new ErrorResponse(code.name(), e.getMessage(), newTraceId());
-        return ResponseEntity.status(code.getStatus()).body(body);
+        return ResponseEntity.status(code.getHttpStatus()).body(body);
     }
 
     private String newTraceId() {

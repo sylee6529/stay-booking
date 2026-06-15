@@ -1,5 +1,8 @@
 package com.example.staybooking.infra;
 
+import com.example.staybooking.application.stock.AdmissionResult;
+import com.example.staybooking.application.stock.StockGatePort;
+import com.example.staybooking.application.stock.StockGateUnavailableException;
 import com.example.staybooking.config.AppProperties;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -15,7 +18,7 @@ import java.util.List;
  * Redis 장애/키 부재는 {@link StockGateUnavailableException}로 Fail-Closed 한다 (불변식 #6).
  */
 @Component
-public class StockGate {
+public class StockGate implements StockGatePort {
 
     private static final long KEY_MISSING = -2;
     private static final long SOLD_OUT = -1;
@@ -36,6 +39,7 @@ public class StockGate {
      *
      * @throws StockGateUnavailableException Redis 장애/타임아웃 또는 stock 키 부재 (Fail-Closed)
      */
+    @Override
     public AdmissionResult admit(long productId, long userId, String idempotencyKey) {
         long ttlSeconds = Math.max(1, properties.getAdmissionTtl().toSeconds());
         Long raw;
@@ -70,6 +74,7 @@ public class StockGate {
      *
      * @return true = INCR 성공, false = 실패(불명확). 절대 재시도하지 않는다.
      */
+    @Override
     public boolean tryRelease(long productId) {
         try {
             redis.opsForValue().increment(stockKey(productId));
@@ -80,11 +85,13 @@ public class StockGate {
     }
 
     /** DB → Redis 단방향 재고 덮어쓰기 (멱등). StockSyncService 전용 (docs/04). */
+    @Override
     public void overwriteStock(long productId, long quantity) {
         redis.opsForValue().set(stockKey(productId), Long.toString(quantity));
     }
 
     /** 현재 Redis 재고(근사치). 키 부재면 null. */
+    @Override
     public Long currentStock(long productId) {
         String value = redis.opsForValue().get(stockKey(productId));
         return value == null ? null : Long.parseLong(value);

@@ -136,3 +136,12 @@
 | 문제 | 장애 원인을 요청 단위로 추적해야 한다. |
 | 결정 | logstash encoder로 JSON 로그를 출력하고 API 에러 응답에 `traceId`를 포함한다. |
 | 근거 | `booking_requests` 상태와 로그를 함께 보면 실패 지점을 좁힐 수 있다. |
+
+### D16. 단일 애플리케이션 안에서 헥사고날 경계를 둔다
+
+| 항목 | 내용 |
+|------|------|
+| 문제 | 멀티모듈이나 MSA로 쪼개기에는 규모가 작지만, API/Redis/PG 구현이 유스케이스에 섞이면 변경 비용이 커진다. |
+| 결정 | modular monolith로 유지하되 `api -> application -> domain` 방향을 기본으로 하고, Redis/PG/scheduler는 application port를 구현하는 infra adapter로 둔다. |
+| 근거 | 배포 단위는 단순하게 유지하면서도 HTTP DTO, Redis Lua, Resilience4j, PG simulator 교체 영향을 application 경계 밖으로 제한할 수 있다. |
+| 검증 | ArchUnit으로 `domain -> api/application/infra`, `application -> api/infra` 의존을 금지한다. |

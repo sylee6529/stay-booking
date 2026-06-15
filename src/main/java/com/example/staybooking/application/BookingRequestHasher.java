@@ -1,6 +1,6 @@
 package com.example.staybooking.application;
 
-import com.example.staybooking.api.dto.BookingCreateRequest;
+import com.example.staybooking.application.booking.BookingCreateCommand;
 import com.example.staybooking.domain.payment.PaymentMethod;
 import org.springframework.stereotype.Component;
 
@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 @Component
 public class BookingRequestHasher {
 
-    public String hash(BookingCreateRequest request, long amount) {
+    public String hash(BookingCreateCommand request, long amount) {
         String methods = request.paymentMethods().stream()
                 .sorted(Comparator.comparing(Enum::name))
                 .map(PaymentMethod::name)
