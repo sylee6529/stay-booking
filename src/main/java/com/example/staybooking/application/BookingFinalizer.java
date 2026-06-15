@@ -25,13 +25,16 @@ public class BookingFinalizer {
     private final BookingRepository bookings;
     private final PaymentRepository payments;
     private final BookingRequestRepository bookingRequests;
+    private final StoredResponseFactory responses;
 
     public BookingFinalizer(PromotionProductRepository products, BookingRepository bookings,
-                            PaymentRepository payments, BookingRequestRepository bookingRequests) {
+                            PaymentRepository payments, BookingRequestRepository bookingRequests,
+                            StoredResponseFactory responses) {
         this.products = products;
         this.bookings = bookings;
         this.payments = payments;
         this.bookingRequests = bookingRequests;
+        this.responses = responses;
     }
 
     @Transactional
@@ -74,14 +77,7 @@ public class BookingFinalizer {
 
         BookingCreateResult response = new BookingCreateResult(booking.getId(), "CONFIRMED");
         bookingRequests.complete(request.getId(), BookingStatus.CONFIRMED, 200,
-                responseJson(response), now);
+                responses.confirmed(response), now);
         return response;
     }
-
-    private String responseJson(BookingCreateResult response) {
-        return """
-                {"bookingId":%d,"status":"%s"}
-                """.formatted(response.bookingId(), response.status()).trim();
-    }
-
 }

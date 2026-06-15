@@ -43,12 +43,14 @@ public class BookingService {
     private final BookingCompensationService compensationService;
     private final IdempotencyCachePort idempotencyCache;
     private final UserRateLimiterPort userRateLimiter;
+    private final StoredResponseFactory responses;
 
     public BookingService(PromotionProductRepository products, BookingRequestRepository bookingRequests,
                           BookingRepository bookings, StockGatePort stockGate, PaymentOrchestrator paymentOrchestrator,
                           BookingRequestHasher hasher, BookingRequestStore requestStore,
                           BookingFinalizer finalizer, BookingCompensationService compensationService,
-                          IdempotencyCachePort idempotencyCache, UserRateLimiterPort userRateLimiter) {
+                          IdempotencyCachePort idempotencyCache, UserRateLimiterPort userRateLimiter,
+                          StoredResponseFactory responses) {
         this.products = products;
         this.bookingRequests = bookingRequests;
         this.bookings = bookings;
@@ -60,6 +62,7 @@ public class BookingService {
         this.compensationService = compensationService;
         this.idempotencyCache = idempotencyCache;
         this.userRateLimiter = userRateLimiter;
+        this.responses = responses;
     }
 
     public BookingCreateResult create(String idempotencyKey, BookingCreateCommand request) {
@@ -113,7 +116,7 @@ public class BookingService {
             return replayOrInProgress(request.userId(), idempotencyKey, requestHash);
         }
         BookingCreateResult result = finalizer.confirm(bookingRequest, product, payment, idempotencyKey);
-        idempotencyCache.cacheResponse(request.userId(), idempotencyKey, requestHash, 200, responseJson(result));
+        idempotencyCache.cacheResponse(request.userId(), idempotencyKey, requestHash, 200, responses.confirmed(result));
         return result;
     }
 
@@ -138,7 +141,7 @@ public class BookingService {
             Booking booking = bookings.findByBookingRequestId(existing.getId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.REQUEST_IN_PROGRESS));
             BookingCreateResult result = new BookingCreateResult(booking.getId(), "CONFIRMED");
-            idempotencyCache.cacheResponse(userId, idempotencyKey, requestHash, 200, responseJson(result));
+            idempotencyCache.cacheResponse(userId, idempotencyKey, requestHash, 200, responses.confirmed(result));
             return result;
         }
         if (existing.getStatus().isTerminal()
@@ -159,9 +162,4 @@ public class BookingService {
                 new PaymentContext(request.userId(), bookingRequestId, request.cardNumber(), request.ypayToken()));
     }
 
-    private String responseJson(BookingCreateResult response) {
-        return """
-                {"bookingId":%d,"status":"%s"}
-                """.formatted(response.bookingId(), response.status()).trim();
-    }
 }

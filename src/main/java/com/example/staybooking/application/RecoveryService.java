@@ -21,15 +21,17 @@ public class RecoveryService {
     private final BookingCompensationService compensationService;
     private final BookingFinalizer finalizer;
     private final AppProperties properties;
+    private final StoredResponseFactory responses;
 
     public RecoveryService(BookingRequestRepository bookingRequests, PromotionProductRepository products,
                            BookingCompensationService compensationService, BookingFinalizer finalizer,
-                           AppProperties properties) {
+                           AppProperties properties, StoredResponseFactory responses) {
         this.bookingRequests = bookingRequests;
         this.products = products;
         this.compensationService = compensationService;
         this.finalizer = finalizer;
         this.properties = properties;
+        this.responses = responses;
     }
 
     @Transactional
@@ -51,12 +53,9 @@ public class RecoveryService {
             }
             compensationService.releaseDbReserved(request.getProductId());
             compensationService.releaseRedisBestEffort(request.getProductId());
-            String body = """
-                    {"code":"%s","message":"%s","traceId":"%s"}
-                    """.formatted(ErrorCode.RESERVATION_EXPIRED.name(),
-                    ErrorCode.RESERVATION_EXPIRED.getMessage(), request.getIdempotencyKey()).trim();
             bookingRequests.failTerminal(request.getId(), BookingStatus.REJECTED, PgStatus.NONE,
-                    "RESERVATION_EXPIRED", ErrorCode.RESERVATION_EXPIRED.getHttpStatus(), body, now);
+                    "RESERVATION_EXPIRED", ErrorCode.RESERVATION_EXPIRED.getHttpStatus(),
+                    responses.error(ErrorCode.RESERVATION_EXPIRED, request.getIdempotencyKey()), now);
         }
     }
 

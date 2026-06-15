@@ -24,10 +24,13 @@ public class BookingRequestStore {
 
     private final BookingRequestRepository bookingRequests;
     private final PromotionProductRepository products;
+    private final StoredResponseFactory responses;
 
-    public BookingRequestStore(BookingRequestRepository bookingRequests, PromotionProductRepository products) {
+    public BookingRequestStore(BookingRequestRepository bookingRequests, PromotionProductRepository products,
+                               StoredResponseFactory responses) {
         this.bookingRequests = bookingRequests;
         this.products = products;
+        this.responses = responses;
     }
 
     @Transactional(noRollbackFor = BusinessException.class)
@@ -46,11 +49,8 @@ public class BookingRequestStore {
 
         int reserved = products.reserveOne(request.productId());
         if (reserved == 0) {
-            String body = """
-                    {"code":"SOLD_OUT","message":"매진되었습니다.","traceId":"%s"}
-                    """.formatted(idempotencyKey).trim();
             bookingRequests.failTerminal(saved.getId(), BookingStatus.REJECTED, PgStatus.NONE,
-                    "SOLD_OUT_DB", 409, body, now);
+                    "SOLD_OUT_DB", 409, responses.error(ErrorCode.SOLD_OUT, idempotencyKey), now);
             throw new BusinessException(ErrorCode.SOLD_OUT);
         }
 
@@ -84,11 +84,8 @@ public class BookingRequestStore {
 
     @Transactional
     public void markFailedTerminal(Long bookingRequestId, ErrorCode code, String reason, String traceId) {
-        String body = """
-                {"code":"%s","message":"%s","traceId":"%s"}
-                """.formatted(code.name(), reason == null ? code.getMessage() : reason, traceId).trim();
         bookingRequests.failTerminal(bookingRequestId, BookingStatus.FAILED, PgStatus.DECLINED,
-                reason, code.getHttpStatus(), body, LocalDateTime.now());
+                reason, code.getHttpStatus(), responses.error(code, reason, traceId), LocalDateTime.now());
     }
 
     private String methodsLabel(BookingCreateCommand request) {

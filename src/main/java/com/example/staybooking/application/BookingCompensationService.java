@@ -22,14 +22,17 @@ public class BookingCompensationService {
     private final StockGatePort stockGate;
     private final BookingRequestRepository bookingRequests;
     private final PointPaymentProcessor pointPaymentProcessor;
+    private final StoredResponseFactory responses;
 
     public BookingCompensationService(PromotionProductRepository products, StockGatePort stockGate,
                                       BookingRequestRepository bookingRequests,
-                                      PointPaymentProcessor pointPaymentProcessor) {
+                                      PointPaymentProcessor pointPaymentProcessor,
+                                      StoredResponseFactory responses) {
         this.products = products;
         this.stockGate = stockGate;
         this.bookingRequests = bookingRequests;
         this.pointPaymentProcessor = pointPaymentProcessor;
+        this.responses = responses;
     }
 
     @Transactional
@@ -69,10 +72,8 @@ public class BookingCompensationService {
                 redisRestored ? StockRestoreStatus.SYNCED : StockRestoreStatus.NEEDS_SYNC,
                 LocalDateTime.now());
 
-        String body = """
-                {"code":"%s","message":"%s","traceId":"%s"}
-                """.formatted(responseCode.name(), responseCode.getMessage(), traceId).trim();
         bookingRequests.failTerminal(compensating.getId(), BookingStatus.FAILED, PgStatus.DECLINED,
-                compensating.getFailureReason(), responseCode.getHttpStatus(), body, LocalDateTime.now());
+                compensating.getFailureReason(), responseCode.getHttpStatus(),
+                responses.error(responseCode, traceId), LocalDateTime.now());
     }
 }
