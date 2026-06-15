@@ -6,6 +6,8 @@ import com.example.staybooking.config.AppProperties;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ProtectedExternalPaymentGatewayTest {
@@ -16,7 +18,7 @@ class ProtectedExternalPaymentGatewayTest {
         properties.getPgProtection().setCircuitSlidingWindowSize(5);
         properties.getPgProtection().setCircuitMinimumNumberOfCalls(5);
         properties.getPgProtection().setCircuitFailureRateThreshold(50);
-        properties.getPgProtection().setCircuitOpenDuration(java.time.Duration.ofSeconds(30));
+        properties.getPgProtection().setCircuitOpenDuration(Duration.ofSeconds(30));
         ProtectedExternalPaymentGateway gateway =
                 new ProtectedExternalPaymentGateway(new SimulatedPaymentGateway(properties), properties);
         GatewayRequest declined = GatewayRequest.card("4111-1111-1111-0000", 150000);
@@ -32,5 +34,20 @@ class ProtectedExternalPaymentGatewayTest {
 
         assertThat(shortCircuited.approved()).isFalse();
         assertThat(shortCircuited.reason()).isEqualTo("PG_CIRCUIT_OPEN");
+    }
+
+    @Test
+    void PG_응답이_타임아웃보다_느리면_PG_TIMEOUT으로_거절한다() {
+        AppProperties properties = new AppProperties();
+        properties.getPgProtection().setTimeout(Duration.ofMillis(50));
+        properties.getPgProtection().setCircuitMinimumNumberOfCalls(100);
+        properties.getPgSimulator().setDelay(Duration.ofMillis(200));
+        ProtectedExternalPaymentGateway gateway =
+                new ProtectedExternalPaymentGateway(new SimulatedPaymentGateway(properties), properties);
+
+        GatewayResult result = gateway.approve(GatewayRequest.card("4111-1111-1111-1234", 150000));
+
+        assertThat(result.approved()).isFalse();
+        assertThat(result.reason()).isEqualTo("PG_TIMEOUT");
     }
 }

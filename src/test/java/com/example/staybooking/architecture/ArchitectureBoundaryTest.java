@@ -27,4 +27,9 @@ class ArchitectureBoundaryTest {
     static final ArchRule inbound_adapters_do_not_depend_on_outbound_adapters =
             noClasses().that().resideInAPackage("..adapter.in..")
                     .should().dependOnClassesThat().resideInAnyPackage("..adapter.out..");
+
+    @ArchTest
+    static final ArchRule outbound_adapters_do_not_depend_on_inbound_adapters =
+            noClasses().that().resideInAPackage("..adapter.out..")
+                    .should().dependOnClassesThat().resideInAnyPackage("..adapter.in..");
 }

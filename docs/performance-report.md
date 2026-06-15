@@ -120,7 +120,7 @@ PG timeout/circuit:
 
 | 항목 | 값 |
 |------|----|
-| tests | 43 |
+| tests | 51 |
 | failures | 0 |
 | errors | 0 |
 

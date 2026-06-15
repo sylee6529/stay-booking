@@ -183,6 +183,60 @@ class BookingControllerTest extends IntegrationTestSupport {
     }
 
     @Test
+    void 멱등키_헤더가_없으면_400_INVALID_REQUEST를_반환한다() throws Exception {
+        long productId = newProduct(1);
+        long userId = System.nanoTime();
+
+        mockMvc.perform(post("/api/bookings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cardRequest(productId, userId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void 카드결제에_카드번호가_없으면_400_INVALID_REQUEST를_반환한다() throws Exception {
+        long productId = newProduct(1);
+        long userId = System.nanoTime();
+
+        mockMvc.perform(post("/api/bookings")
+                        .header("Idempotency-Key", "missing-card-" + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productId": %d,
+                                  "userId": %d,
+                                  "paymentMethods": ["CREDIT_CARD"],
+                                  "pointAmount": 0
+                                }
+                                """.formatted(productId, userId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void 카드와_YPay를_함께_보내면_400_INVALID_PAYMENT_COMBINATION을_반환한다() throws Exception {
+        long productId = newProduct(1);
+        long userId = System.nanoTime();
+
+        mockMvc.perform(post("/api/bookings")
+                        .header("Idempotency-Key", "invalid-combo-" + userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productId": %d,
+                                  "userId": %d,
+                                  "paymentMethods": ["CREDIT_CARD", "Y_PAY"],
+                                  "pointAmount": 0,
+                                  "cardNumber": "4111-1111-1111-1234",
+                                  "ypayToken": "valid-token"
+                                }
+                                """.formatted(productId, userId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PAYMENT_COMBINATION"));
+    }
+
+    @Test
     void internal_stock_sync는_DB_available_기준으로_Redis를_덮어쓴다() throws Exception {
         long productId = newProduct(3);
         stockGate.overwriteStock(productId, 99);
