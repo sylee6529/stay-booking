@@ -23,9 +23,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * Redis admission 게이트의 원자성·Fail-Closed·단방향 sync 검증 (불변식 #1, #5, #6, docs/04).
- */
 class StockGateTest extends IntegrationTestSupport {
 
     @Autowired
@@ -82,7 +79,7 @@ class StockGateTest extends IntegrationTestSupport {
 
         assertThat(first.isReserved()).isTrue();
         assertThat(second.outcome()).isEqualTo(AdmissionResult.Outcome.DUPLICATE);
-        assertThat(stockGate.currentStock(productId)).isEqualTo(2); // 1회만 차감
+        assertThat(stockGate.currentStock(productId)).isEqualTo(2);
     }
 
     @Test
@@ -97,7 +94,7 @@ class StockGateTest extends IntegrationTestSupport {
 
     @Test
     void stock키가_없으면_FailClosed로_예외를_던진다() {
-        long productId = newProduct(5); // sync 하지 않아 Redis 키 부재
+        long productId = newProduct(5);
 
         assertThatThrownBy(() -> stockGate.admit(productId, 1L, "k1"))
                 .isInstanceOf(StockGateUnavailableException.class);
@@ -107,7 +104,7 @@ class StockGateTest extends IntegrationTestSupport {
     void tryRelease는_재고를_1_증가시킨다() {
         long productId = newProduct(1);
         stockSyncService.sync(productId);
-        stockGate.admit(productId, 1L, "k1"); // 1 -> 0
+        stockGate.admit(productId, 1L, "k1");
 
         assertThat(stockGate.tryRelease(productId)).isTrue();
         assertThat(stockGate.currentStock(productId)).isEqualTo(1);
@@ -118,9 +115,8 @@ class StockGateTest extends IntegrationTestSupport {
         long productId = newProduct(7);
 
         stockSyncService.sync(productId);
-        stockGate.admit(productId, 1L, "k1"); // Redis 6, DB available 7 (admit은 DB 미반영)
+        stockGate.admit(productId, 1L, "k1");
 
-        // 다시 sync 하면 DB 기준(7)으로 덮어쓴다 — 멱등
         stockSyncService.sync(productId);
         assertThat(stockGate.currentStock(productId)).isEqualTo(7);
     }

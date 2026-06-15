@@ -18,7 +18,6 @@ public class CheckoutController {
         this.checkoutService = checkoutService;
     }
 
-    /** GET /api/checkout?productId={id}&userId={id} — 주문서 조회 (재고 미차감). */
     @GetMapping("/checkout")
     public CheckoutResponse checkout(@RequestParam long productId, @RequestParam long userId) {
         CheckoutResult result = checkoutService.getCheckout(productId, userId);

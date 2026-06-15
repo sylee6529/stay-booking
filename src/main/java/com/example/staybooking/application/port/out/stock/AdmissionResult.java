@@ -1,18 +1,14 @@
 package com.example.staybooking.application.port.out.stock;
 
 /**
- * Redis admission 결과 (docs/03 [1], docs/04).
- *
- * <p>키 부재/연결 실패는 결과값이 아니라 {@link StockGateUnavailableException}로 던진다 (Fail-Closed).
+ * Redis admission 결과. 키 부재/연결 실패는 예외로 처리한다.
  */
 public record AdmissionResult(Outcome outcome, long remaining) {
 
     public enum Outcome {
-        /** 선점 성공. {@link #remaining}에 남은 재고 */
         RESERVED,
-        /** 매진 (stock <= 0) */
         SOLD_OUT,
-        /** 같은 (userId, idempotencyKey) admission 중복 — 멱등 재생 경로로 처리 */
+        /** 같은 userId/idempotencyKey로 이미 admission을 통과한 요청 */
         DUPLICATE
     }
 

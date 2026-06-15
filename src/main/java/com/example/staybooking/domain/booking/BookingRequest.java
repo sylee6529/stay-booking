@@ -12,12 +12,10 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 /**
- * 멱등성·상태 머신의 진실. {@code UNIQUE(user_id, idempotency_key)}가 중복 결제 최후 방어선이다
- * (불변식 #2, docs/05). request_hash는 같은 키 다른 payload를 거절한다 (불변식 #3).
+ * 멱등성·상태 머신의 진실.
  *
  * <p>상태 전이는 가능한 한 {@link BookingRequestRepository#compareAndSetStatus}(조건부 UPDATE)로
- * 수행한다. 엔티티 setter dirty-checking에 의존한 상태 전이는 보상 중복(effectively-once 위반)
- * 위험이 있으므로 지양한다 (불변식 #8, docs/06).
+ * 수행한다. 엔티티 dirty-checking에 의존하면 보상 경로가 중복 진입할 수 있다.
  */
 @Entity
 @Table(name = "booking_requests")
@@ -107,7 +105,6 @@ public class BookingRequest {
         this.updatedAt = now;
     }
 
-    /** 멱등성 점유 시점에 RECEIVED 상태로 새 요청 행을 만든다. */
     public static BookingRequest received(String idempotencyKey, String requestHash, Long userId,
                                           Long productId, String paymentMethods, long amount,
                                           long pointAmount, LocalDateTime now) {

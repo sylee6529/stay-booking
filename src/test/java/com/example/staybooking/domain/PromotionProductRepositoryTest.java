@@ -18,10 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 재고 조건부 UPDATE의 원자성 검증 (불변식 #1, #8, docs/04).
- *
- * <p>각 스레드가 독립 트랜잭션으로 reserveOne을 호출해도 성공 건수가 재고 수량을 넘지 않음을 증명한다.
- * 이것이 Step 5의 통합 T1(1000 동시 요청)을 떠받치는 저수준 보장이다.
+ * 각 스레드가 독립 트랜잭션으로 reserveOne을 호출해도 성공 건수는 재고를 넘지 않는다.
  */
 class PromotionProductRepositoryTest extends IntegrationTestSupport {
 

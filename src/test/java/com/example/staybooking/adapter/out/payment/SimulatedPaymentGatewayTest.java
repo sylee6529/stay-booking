@@ -7,9 +7,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * 결제 시뮬레이터의 결정성 검증 (docs/06). 입력값으로 성패가 고정된다.
- */
 class SimulatedPaymentGatewayTest {
 
     private final SimulatedPaymentGateway gateway = new SimulatedPaymentGateway(new AppProperties());

@@ -12,13 +12,7 @@ import java.time.Duration;
 import java.util.UUID;
 
 /**
- * 결정적 결제 시뮬레이터 (docs/06). 랜덤 실패 대신 입력값으로 성패를 결정해 테스트 재현성을 보장한다.
- *
- * <ul>
- *   <li>카드번호 끝 4자리 {@code 0000} → CARD_DECLINED</li>
- *   <li>YPay 토큰 {@code FAIL} → YPAY_DECLINED</li>
- *   <li>그 외 → 승인 (PG- 접두 transactionId 발급)</li>
- * </ul>
+ * 입력값으로 성패가 고정되는 결제 시뮬레이터.
  */
 @Component
 public class SimulatedPaymentGateway implements ExternalPaymentGateway {
@@ -58,7 +52,6 @@ public class SimulatedPaymentGateway implements ExternalPaymentGateway {
 
     @Override
     public void cancel(String transactionId) {
-        // 시뮬레이터: 실제 취소 호출 대신 기록만 남긴다. best-effort.
         log.info("external payment canceled (simulated): transactionId={}", transactionId);
     }
 

@@ -1,8 +1,5 @@
 package com.example.staybooking.application.error;
 
-/**
- * 비즈니스 규칙 위반을 {@link ErrorCode}로 표현하는 예외. API adapter가 에러 봉투로 변환한다.
- */
 public class BusinessException extends RuntimeException {
 
     private final ErrorCode errorCode;

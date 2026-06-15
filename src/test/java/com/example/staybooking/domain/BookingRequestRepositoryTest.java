@@ -15,9 +15,6 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * 멱등성 최후 방어선(UNIQUE)과 상태 전이 CAS 가드 검증 (불변식 #2, #7, #8, docs/05·06·07).
- */
 class BookingRequestRepositoryTest extends IntegrationTestSupport {
 
     @Autowired
@@ -49,12 +46,10 @@ class BookingRequestRepositoryTest extends IntegrationTestSupport {
         TransactionTemplate tx = new TransactionTemplate(txManager);
         LocalDateTime now = LocalDateTime.now();
 
-        // 첫 전이: RECEIVED -> STOCK_RESERVED 성공
         Integer first = tx.execute(s ->
                 repository.compareAndSetStatus(id, BookingStatus.RECEIVED, BookingStatus.STOCK_RESERVED, now));
         assertThat(first).isEqualTo(1);
 
-        // 같은 from(RECEIVED)으로 다시 시도하면 이미 옮겨졌으므로 0 (보상 중복 진입 방지와 동일 원리)
         Integer second = tx.execute(s ->
                 repository.compareAndSetStatus(id, BookingStatus.RECEIVED, BookingStatus.STOCK_RESERVED, now));
         assertThat(second).isZero();

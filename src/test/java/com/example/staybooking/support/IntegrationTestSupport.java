@@ -7,7 +7,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 
 /**
- * 통합 테스트 베이스. MySQL 8 컨테이너를 JVM당 1회만 기동해 전 테스트가 공유한다 (docs/09).
+ * 통합 테스트 베이스. MySQL 8 컨테이너를 JVM당 1회만 기동해 전 테스트가 공유한다.
  *
  * <p>H2 호환 모드로는 조건부 UPDATE 원자성·UNIQUE·CHECK·JSON 컬럼을 검증할 수 없으므로
  * 실제 MySQL을 띄운다. 컨테이너는 static 싱글턴으로 한 번 start 하고 JVM 종료 시 Ryuk가 정리한다.

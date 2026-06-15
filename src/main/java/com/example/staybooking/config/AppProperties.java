@@ -4,15 +4,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
 
-/**
- * 애플리케이션 설정 바인딩. 설정을 실제로 쓰는 단계에서 필요한 항목만 점진적으로 추가한다.
- *
- * <p>현재 보유:
- * <ul>
- *   <li>{@code app.stock-sync-on-startup} — 앱 시작 시 DB→Redis 재고 동기화(데모 편의용, 운영은 internal API)</li>
- *   <li>{@code app.admission-ttl} — admission 중복 키 TTL (orphan admission이 under-sell로만 남도록 짧게)</li>
- * </ul>
- */
 @ConfigurationProperties(prefix = "app")
 public class AppProperties {
 

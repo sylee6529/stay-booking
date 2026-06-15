@@ -13,7 +13,6 @@ import java.util.Optional;
 
 public interface BookingRequestRepository extends JpaRepository<BookingRequest, Long> {
 
-    /** 멱등 재생/충돌 판정의 진입점. UNIQUE(user_id, idempotency_key)와 짝을 이룬다. */
     Optional<BookingRequest> findByUserIdAndIdempotencyKey(Long userId, String idempotencyKey);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -51,10 +50,7 @@ public interface BookingRequestRepository extends JpaRepository<BookingRequest, 
     List<BookingRequest> findByStatus(BookingStatus status);
 
     /**
-     * 상태 전이 CAS 가드 (docs/06, docs/07). 보상/복구가 두 경로에서 동시에 시도돼도
-     * DB row-level lock이 직렬화하여 한쪽만 1 row를 얻는다 → effectively-once.
-     *
-     * @return 1 = 전이 성공(권리 획득), 0 = 이미 다른 경로가 진입 → 스킵
+     * 보상/복구가 동시에 시도돼도 한 경로만 상태 전이 권리를 얻는다.
      */
     @Modifying(clearAutomatically = true)
     @Query("""

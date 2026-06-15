@@ -7,10 +7,6 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
-/**
- * 앱 시작 시 DB→Redis 재고 동기화 (데모 편의용). {@code app.stock-sync-on-startup=true}일 때만 동작한다.
- * 운영에서는 이 옵션을 끄고 운영자가 internal API로만 sync를 트리거한다 (docs/04).
- */
 @Component
 public class StockSyncStartupRunner implements ApplicationRunner {
 

@@ -9,10 +9,6 @@ import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
 
-/**
- * 결제 기록. {@code UNIQUE(booking_request_id)}와 {@code UNIQUE(transaction_id)}로
- * 한 요청에 결제 2건/같은 승인 중복 기록을 막는다 (불변식 #2, docs/11).
- */
 @Entity
 @Table(name = "payments")
 public class Payment {

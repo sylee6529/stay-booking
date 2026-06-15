@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 
 /**
  * 포인트 차감/환불 이력. {@code UNIQUE(booking_request_id, type)}가 보상 재실행 시
- * 포인트 이중 환불을 막는다 (불변식 #2, docs/06).
+ * 포인트 이중 환불을 막는다.
  */
 @Entity
 @Table(name = "point_history")

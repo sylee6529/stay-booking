@@ -15,10 +15,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * 결제 조합 검증 · 금액 분배 · 부분 실패 보상 단위 테스트 (docs/06). 컨테이너 없이 전략을 모킹한다.
- * T4(금액 분배), T5(혼용 거절), T11(포인트 부족) 포함.
- */
 class PaymentOrchestratorTest {
 
     private final PaymentProcessor pointProcessor = mock(PaymentProcessor.class);
@@ -37,8 +33,6 @@ class PaymentOrchestratorTest {
     private ErrorCode errorCodeOf(Throwable t) {
         return ((BusinessException) t).getErrorCode();
     }
-
-    // ---- T5 / 조합 검증 ----
 
     @Test
     void 카드와_YPay를_함께_쓰면_거절한다() {
@@ -87,8 +81,6 @@ class PaymentOrchestratorTest {
                 .satisfies(t -> assertThat(errorCodeOf(t)).isEqualTo(ErrorCode.INVALID_REQUEST));
     }
 
-    // ---- T4 / 금액 분배 ----
-
     @Test
     void 카드_포인트_복합결제는_금액을_분배하고_외부에_나머지를_청구한다() {
         PaymentOrchestrator orchestrator = orchestrator();
@@ -107,8 +99,6 @@ class PaymentOrchestratorTest {
         verify(cardProcessor).approve(eq(ctx), eq(120000L));
     }
 
-    // ---- T11 / 포인트 부족 ----
-
     @Test
     void 포인트가_부족하면_외부수단을_호출하지_않고_INSUFFICIENT_POINT로_실패한다() {
         PaymentOrchestrator orchestrator = orchestrator();
@@ -123,8 +113,6 @@ class PaymentOrchestratorTest {
         assertThat(result.failureCode()).isEqualTo(ErrorCode.INSUFFICIENT_POINT);
         verify(cardProcessor, never()).approve(eq(ctx), eq(150000L));
     }
-
-    // ---- 부분 실패 보상 ----
 
     @Test
     void 포인트차감후_카드거절이면_포인트를_환불하고_실패를_반환한다() {

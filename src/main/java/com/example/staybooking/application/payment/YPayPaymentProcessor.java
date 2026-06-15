@@ -7,9 +7,6 @@ import com.example.staybooking.application.port.out.payment.GatewayRequest;
 import com.example.staybooking.application.port.out.payment.GatewayResult;
 import org.springframework.stereotype.Component;
 
-/**
- * Y페이 결제 — 외부 게이트웨이 경유. DB 트랜잭션 없이 호출한다 (불변식 #4).
- */
 @Component
 public class YPayPaymentProcessor implements PaymentProcessor {
 

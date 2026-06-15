@@ -9,11 +9,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 프로모션 상품 + 재고. 재고는 available/reserved/sold 세 값으로 분리한다 (docs/04, docs/11).
- *
- * <p>재고 수량 변경은 이 엔티티의 setter/dirty-checking으로 하지 않는다.
- * 반드시 {@link PromotionProductRepository}의 조건부 벌크 UPDATE를 통해서만 갱신한다
- * (불변식 #8: JPA read-modify-write 금지).
+ * 재고는 available/reserved/sold 세 값으로 분리하고 조건부 벌크 UPDATE로만 갱신한다.
  */
 @Entity
 @Table(name = "promotion_products")

@@ -10,10 +10,6 @@ import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-/**
- * 확정된 예약. {@code UNIQUE(booking_request_id)}로 복구 재시도가 예약을 중복 생성하지 못한다
- * (불변식 #2, docs/11).
- */
 @Entity
 @Table(name = "bookings")
 public class Booking {

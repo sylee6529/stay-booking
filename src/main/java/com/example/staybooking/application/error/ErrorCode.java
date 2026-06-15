@@ -1,8 +1,5 @@
 package com.example.staybooking.application.error;
 
-/**
- * 유스케이스 에러 코드. API adapter는 이 코드를 HTTP 응답 봉투로 변환한다.
- */
 public enum ErrorCode {
 
     INVALID_REQUEST(400, "요청이 올바르지 않습니다."),
