@@ -14,15 +14,17 @@ class ArchitectureBoundaryTest {
     static final ArchRule domain_is_independent =
             noClasses().that().resideInAPackage("..domain..")
                     .should().dependOnClassesThat().resideInAnyPackage(
-                            "..api..",
+                            "..adapter..",
                             "..application..",
-                            "..infra..",
                             "..config..");
 
     @ArchTest
-    static final ArchRule application_does_not_depend_on_api_or_infra_adapters =
+    static final ArchRule application_does_not_depend_on_adapters =
             noClasses().that().resideInAPackage("..application..")
-                    .should().dependOnClassesThat().resideInAnyPackage(
-                            "..api..",
-                            "..infra..");
+                    .should().dependOnClassesThat().resideInAnyPackage("..adapter..");
+
+    @ArchTest
+    static final ArchRule inbound_adapters_do_not_depend_on_outbound_adapters =
+            noClasses().that().resideInAPackage("..adapter.in..")
+                    .should().dependOnClassesThat().resideInAnyPackage("..adapter.out..");
 }

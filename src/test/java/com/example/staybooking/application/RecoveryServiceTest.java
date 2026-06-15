@@ -7,7 +7,7 @@ import com.example.staybooking.domain.booking.PgStatus;
 import com.example.staybooking.domain.payment.PaymentRepository;
 import com.example.staybooking.domain.product.PromotionProduct;
 import com.example.staybooking.domain.product.PromotionProductRepository;
-import com.example.staybooking.application.stock.StockGatePort;
+import com.example.staybooking.application.port.out.stock.StockGatePort;
 import com.example.staybooking.support.IntegrationTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

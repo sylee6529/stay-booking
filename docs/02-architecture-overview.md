@@ -39,7 +39,13 @@ Redis가 틀려도(장애, drift) DB의 unique constraint와 조건부 UPDATE가
 
 ```
 com.example.staybooking
-├── api/            # HTTP adapter. Controller, HTTP DTO, 예외 → HTTP 매핑
+├── adapter/
+│   ├── in/
+│   │   ├── web/             # HTTP adapter. Controller, HTTP DTO, 예외 → HTTP 매핑
+│   │   └── scheduler/       # Spring Scheduled 진입점
+│   └── out/
+│       ├── redis/           # Redis admission adapter
+│       └── payment/         # PG simulator + Resilience4j adapter
 ├── application/    # 유스케이스 오케스트레이션
 │   ├── BookingService        # 예약 흐름 전체 (트랜잭션 밖에서 단계 조율)
 │   ├── BookingFinalizer      # 확정 트랜잭션(TX1) 단독 담당
@@ -48,17 +54,17 @@ com.example.staybooking
 │   ├── RecoveryService       # 미완결 요청 스캔/수렴
 │   ├── StockSyncService      # DB → Redis 재고 재계산 (단방향)
 │   ├── booking/, checkout/   # application command/result
-│   ├── stock/                # Redis admission port
-│   └── payment/              # PaymentOrchestrator + PaymentProcessor + PG port
-├── domain/         # 엔티티, 리포지토리, 상태 enum. 인프라 비의존
-└── infra/          # Redis/PG/scheduler adapter
+│   ├── payment/              # PaymentOrchestrator + PaymentProcessor 전략
+│   └── port/out/             # Redis admission, 외부 PG port
+├── domain/         # 엔티티, 리포지토리, 상태 enum. adapter 비의존
+└── config/         # Spring 설정, typed properties
 ```
 
-- **API ↔ application 분리**: Controller가 HTTP DTO를 application command/result로 변환한다. application은 `api` 패키지를 의존하지 않는다.
-- **application ↔ infra 분리**: `BookingService`는 `StockGatePort`와 `PaymentOrchestrator`만 알고,
-  Lua 스크립트·Lettuce·시뮬레이터·Resilience4j 구현은 infra adapter에 격리한다.
+- **Inbound adapter ↔ application 분리**: Controller가 HTTP DTO를 application command/result로 변환한다. application은 `adapter.in.web`을 의존하지 않는다.
+- **application ↔ outbound adapter 분리**: `BookingService`는 `StockGatePort`와 `PaymentOrchestrator`만 알고,
+  Lua 스크립트·Lettuce·시뮬레이터·Resilience4j 구현은 `adapter.out`에 격리한다.
 - **결제 수단 비의존**: BookingService → PaymentOrchestrator → PaymentProcessor(전략) 방향으로만 의존.
-- **경계 회귀 방지**: ArchUnit 테스트가 `domain -> api/application/infra`와 `application -> api/infra` 의존을 금지한다.
+- **경계 회귀 방지**: ArchUnit 테스트가 `domain -> adapter/application/config`, `application -> adapter`, `adapter.in -> adapter.out` 의존을 금지한다.
 
 ## 기술 선택
 

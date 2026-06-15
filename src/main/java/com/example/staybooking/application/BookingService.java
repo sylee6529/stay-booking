@@ -15,9 +15,9 @@ import com.example.staybooking.domain.booking.BookingRequestRepository;
 import com.example.staybooking.domain.booking.BookingStatus;
 import com.example.staybooking.domain.product.PromotionProduct;
 import com.example.staybooking.domain.product.PromotionProductRepository;
-import com.example.staybooking.application.stock.AdmissionResult;
-import com.example.staybooking.application.stock.StockGatePort;
-import com.example.staybooking.application.stock.StockGateUnavailableException;
+import com.example.staybooking.application.port.out.stock.AdmissionResult;
+import com.example.staybooking.application.port.out.stock.StockGatePort;
+import com.example.staybooking.application.port.out.stock.StockGateUnavailableException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 

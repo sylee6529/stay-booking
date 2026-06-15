@@ -2,7 +2,7 @@ package com.example.staybooking.application;
 
 import com.example.staybooking.domain.product.PromotionProduct;
 import com.example.staybooking.domain.product.PromotionProductRepository;
-import com.example.staybooking.application.stock.StockGatePort;
+import com.example.staybooking.application.port.out.stock.StockGatePort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

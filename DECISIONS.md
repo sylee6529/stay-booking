@@ -1,147 +1,125 @@
 # Decisions
 
-구현 중 핵심 의사결정만 정리합니다. README는 구조와 사용법을 설명하고, 이 문서는 선택지와 이유를 기록합니다.
+README는 프로젝트 구조와 사용법을 설명합니다. 이 문서는 구현 중 내린 핵심 선택과 그 이유를 기록합니다.
+
+각 결정은 "무엇을 고민했고", "무엇을 선택했으며", "무엇을 포기했는지"를 중심으로 남깁니다.
 
 ## 1. Concurrency and Inventory
 
-### D1. Redis admission을 DB write 앞에 둔다
+### D1. 피크 요청을 DB까지 모두 보내지 않는다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | 매진 이후 요청까지 모두 DB에 쓰면 피크 상황에서 DB가 병목이 된다. |
-| 결정 | `StockGate`의 Redis Lua admission을 먼저 통과한 요청만 DB에 기록한다. |
-| 근거 | Redis는 빠른 부하 차단, DB는 영속 정합성 검증 역할로 나눈다. |
-| 포기 | JVM lock, 로컬 캐시, 무제한 DB fallback |
+- **상황**: 재고 10개 상품에 수백~수천 개 요청이 동시에 들어올 수 있다.
+- **고민**: 모든 요청을 먼저 DB에 기록하면 매진 이후 요청까지 DB write와 row 경합을 만든다.
+- **결정**: Redis Lua admission을 DB write 앞에 둔다. Redis에서 재고가 남은 요청만 통과시키고, 매진 이후 요청은 DB에 기록하지 않는다.
+- **트레이드오프**: Redis와 DB 사이의 재고 보상/동기화 문제가 생긴다. 대신 피크 순간의 DB 부하를 크게 줄일 수 있다.
+- **포기한 대안**: JVM lock, 로컬 캐시, 무제한 DB fallback
 
-### D2. DB는 최종 정합성 방어선이다
+### D2. Redis만 믿지 않고 DB에서 한 번 더 막는다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | Redis 값은 drift가 날 수 있다. |
-| 결정 | DB에서 `WHERE available_quantity > 0` 조건부 UPDATE를 한 번 더 수행한다. |
-| 근거 | Redis가 부풀려져도 DB reserve 단계에서 결제 전 거절할 수 있다. |
+- **상황**: Redis 값은 장애, 보상 실패, 수동 조작, 재시작 과정에서 DB와 어긋날 수 있다.
+- **고민**: Redis admission만으로 예약을 확정하면 Redis 값이 부풀려졌을 때 초과 판매가 발생할 수 있다.
+- **결정**: DB에서도 `WHERE available_quantity > 0` 조건부 UPDATE를 수행한다.
+- **트레이드오프**: Redis를 통과한 요청도 DB에서 한 번 더 실패할 수 있다. 대신 최종 재고 정합성은 DB가 보장한다.
 
-### D3. 재고는 available/reserved/sold로 나눈다
+### D3. 결제 진행 중인 수량도 재고에 표현한다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | `total - sold` 모델은 결제 진행 중 재고를 표현하지 못한다. |
-| 결정 | `available_quantity`, `reserved_quantity`, `sold_quantity`를 둔다. |
-| 근거 | Redis sync가 진행 중 예약을 되살리는 문제를 피할 수 있다. |
+- **상황**: Redis admission을 통과했지만 결제와 예약 확정이 아직 끝나지 않은 수량이 존재한다.
+- **고민**: `total - sold` 모델은 판매 완료 수량만 표현한다. 결제 진행 중인 수량을 DB에 남기지 못하면 Redis sync가 진행 중 예약을 다시 열어버릴 수 있다.
+- **결정**: `available_quantity`, `reserved_quantity`, `sold_quantity`를 분리한다.
+- **트레이드오프**: 재고 전이 로직이 조금 늘어난다. 대신 Redis를 DB 기준으로 다시 맞출 때 `available_quantity`만 보면 된다.
 
 ## 2. Idempotency
 
-### D4. 멱등키 범위는 userId + idempotencyKey다
+### D4. 멱등키는 사용자 단위로 해석한다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | 멱등키를 전역 unique로 두면 서로 다른 사용자의 키가 충돌할 수 있다. |
-| 결정 | `UNIQUE(user_id, idempotency_key)`를 사용한다. |
-| 근거 | 클라이언트 멱등키는 사용자 요청 범위에서 해석하는 것이 자연스럽다. |
+- **상황**: 서로 다른 사용자가 우연히 같은 `Idempotency-Key`를 보낼 수 있다.
+- **고민**: 멱등키를 전역 unique로 두면 다른 사용자의 요청이 서로 충돌한다.
+- **결정**: `UNIQUE(user_id, idempotency_key)`를 사용한다.
+- **트레이드오프**: 모든 멱등성 조회에 `userId`가 필요하다. 대신 멱등키 충돌 범위가 사용자 요청 범위로 제한된다.
 
-### D5. 같은 키 다른 payload는 409로 거절한다
+### D5. 같은 멱등키의 다른 요청 내용은 거절한다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | 같은 멱등키로 다른 상품/금액을 보내면 기존 응답 재생이 위험하다. |
-| 결정 | canonical payload의 `request_hash`를 저장하고 다르면 409를 반환한다. |
-| 근거 | 키 재사용 실수를 금전 사고로 연결하지 않는다. |
+- **상황**: 클라이언트가 같은 키로 다른 상품, 포인트 금액, 결제수단을 보낼 수 있다.
+- **고민**: 키만 같다고 기존 응답을 재생하면 다른 요청을 같은 요청으로 오인할 수 있다.
+- **결정**: canonical payload의 `request_hash`를 저장하고, 같은 키의 다른 payload는 409로 거절한다.
+- **트레이드오프**: 클라이언트는 요청 내용을 바꾸려면 새 멱등키를 써야 한다. 대신 키 재사용 실수가 금전 사고로 이어지지 않는다.
 
 ## 3. Transaction Boundaries
 
-### D6. BookingService 전체 트랜잭션을 두지 않는다
+### D6. 외부 PG 호출 중 DB 커넥션을 잡지 않는다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | 외부 PG 호출 중 DB 커넥션을 잡으면 커넥션 풀이 쉽게 고갈된다. |
-| 결정 | `BookingService`는 비트랜잭션 오케스트레이터로 두고, 단계별 짧은 트랜잭션을 호출한다. |
-| 근거 | 각 단계 상태를 durable하게 남기면서 외부 호출 중 커넥션 점유를 피한다. |
+- **상황**: 예약 생성은 재고 예약, 결제, 예약 확정이 이어지는 긴 흐름이다.
+- **고민**: 전체 흐름을 하나의 DB 트랜잭션으로 묶으면 외부 PG 응답을 기다리는 동안 DB 커넥션을 점유한다.
+- **결정**: `BookingService`는 비트랜잭션 오케스트레이터로 두고, 단계별 짧은 트랜잭션을 호출한다.
+- **트레이드오프**: 중간 상태가 DB에 남으므로 Recovery Job이 필요하다. 대신 외부 호출 지연이 DB 커넥션 고갈로 번지는 것을 막는다.
 
-### D7. 확정은 단일 트랜잭션으로 묶는다
+### D7. 예약 확정 단계는 한 트랜잭션으로 묶는다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | 예약/결제/재고 확정 중 일부만 저장되면 불일치가 생긴다. |
-| 결정 | `BookingFinalizer`에서 `reserved -> sold`, booking insert, payment insert, `CONFIRMED` 저장을 한 트랜잭션으로 처리한다. |
-| 근거 | 확정 단계 내부는 모두 성공하거나 모두 롤백되어야 한다. |
+- **상황**: 결제 승인 후에는 재고 확정, 예약 저장, 결제 기록 저장, 요청 상태 변경이 함께 일어나야 한다.
+- **고민**: 이 단계가 일부만 성공하면 "결제는 됐지만 예약이 없음" 같은 불일치가 생긴다.
+- **결정**: `BookingFinalizer`에서 `reserved -> sold`, booking insert, payment insert, `CONFIRMED` 저장을 한 트랜잭션으로 처리한다.
+- **트레이드오프**: 확정 단계의 트랜잭션 범위는 상대적으로 커진다. 대신 확정 결과는 모두 성공하거나 모두 롤백된다.
 
 ## 4. Payment and Compensation
 
-### D8. 포인트를 먼저 차감하고 외부 결제를 나중에 승인한다
+### D8. 복합 결제에서는 포인트를 먼저 차감한다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | 외부 승인 후 자사 포인트 차감이 실패하면 외부 취소가 필요하다. |
-| 결정 | 포인트 선차감 후 외부 결제를 승인한다. |
-| 근거 | 포인트는 자사 DB라 환불이 쉽고, 외부 취소는 더 불확실하다. |
+- **상황**: 복합 결제에서는 자사 포인트와 외부 결제가 함께 사용될 수 있다.
+- **고민**: 외부 승인 후 자사 포인트 차감이 실패하면 외부 결제를 취소해야 한다. 외부 취소는 자사 DB 보상보다 불확실하다.
+- **결정**: 포인트 선차감 후 외부 결제를 승인한다.
+- **트레이드오프**: 외부 결제가 거절되면 포인트 환불 보상이 필요하다. 대신 더 불확실한 외부 결제 취소 경로를 줄인다.
 
-### D9. 보상은 effectively-once로 설계한다
+### D9. 보상은 최종 효과가 한 번만 반영되게 한다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | 즉시 실패 경로와 Recovery가 동시에 보상할 수 있다. |
-| 결정 | `PAYMENT_FAILED -> COMPENSATING` CAS, `point_history` unique, `stock_restore_status`를 사용한다. |
-| 근거 | 외부 시스템과 Redis까지 포함한 정확한 exactly-once는 주장하지 않고, 최종 효과가 한 번만 반영되게 한다. |
+- **상황**: 즉시 실패 처리와 Recovery Job이 같은 예약 요청을 동시에 보상할 수 있다.
+- **고민**: 외부 시스템과 Redis까지 포함하면 엄밀한 exactly-once를 주장하기 어렵다. 하지만 포인트 환불이나 재고 복구가 두 번 반영되면 안 된다.
+- **결정**: `PAYMENT_FAILED -> COMPENSATING` CAS, `point_history` unique, `stock_restore_status`를 사용한다.
+- **트레이드오프**: 상태와 제약이 늘어난다. 대신 보상 재시도와 중복 실행에도 최종 효과를 한 번만 반영할 수 있다.
 
-### D10. Redis 재고 복구는 best-effort 1회만 한다
+### D10. Redis 재고 복구는 한 번만 시도한다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | Redis `INCR` 성공 직후 앱이 죽으면 성공 여부가 불명확하다. |
-| 결정 | Redis 복구는 한 번만 시도하고 실패/불명확하면 `NEEDS_SYNC`로 남긴다. |
-| 근거 | 중복 `INCR`은 실제보다 많은 재고를 만들어 초과 판매 방향으로 위험하다. |
+- **상황**: 결제 실패 후 Redis 재고를 `INCR`로 복구해야 한다.
+- **고민**: Redis `INCR` 성공 직후 앱이 죽으면 성공 여부를 알 수 없다. 이때 재시도하면 실제보다 많은 재고를 만들 수 있다.
+- **결정**: Redis 복구는 best-effort 1회만 시도하고, 실패/불명확하면 `NEEDS_SYNC`로 남긴다.
+- **트레이드오프**: 일시적으로 덜 팔리는 방향의 재고 불일치가 남을 수 있다. 대신 초과 판매 방향의 phantom stock을 만들지 않는다.
 
 ## 5. Failure Recovery
 
-### D11. 비종결 상태는 Recovery Job 대상이다
+### D11. 끝나지 않은 예약 요청은 Recovery Job이 다시 본다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | 앱은 어느 단계에서든 중단될 수 있다. |
-| 결정 | `STOCK_RESERVED`, `APPROVING`, `APPROVED`, `COMPENSATING`, `RECOVERY_NEEDED`를 스캔한다. |
-| 근거 | 중간 상태를 DB에 남기면 재실행이 곧 복구가 된다. |
+- **상황**: 앱은 재고 예약 후, PG 호출 중, 결제 승인 후, 보상 중 어느 시점에서도 중단될 수 있다.
+- **고민**: 중간 상태를 무시하면 결제 성공 후 예약이 확정되지 않거나, 보상이 끝나지 않은 요청이 남을 수 있다.
+- **결정**: `STOCK_RESERVED`, `APPROVING`, `APPROVED`, `COMPENSATING`, `RECOVERY_NEEDED` 상태를 Recovery Job이 스캔한다.
+- **트레이드오프**: 주기적인 스캔 비용과 재시도 로직이 필요하다. 대신 중간에 멈춘 요청을 수동 DB 조작 없이 다시 처리할 수 있다.
 
-### D12. APPROVING lease 만료는 보상 수렴한다
+### D12. 승인 식별자가 없는 APPROVING 만료는 성공으로 보지 않는다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | 현재 PG 시뮬레이터에는 inquiry API가 없다. |
-| 결정 | `APPROVING` 상태에서 lease가 만료되고 `pgTxId`가 없으면 보상 경로로 수렴한다. |
-| 근거 | 승인 식별자가 없는 상태에서 확정을 시도하지 않는다. |
-| 추후 개선 | PG inquiry 계약을 추가하면 승인/미승인을 조회해 분기할 수 있다. |
+- **상황**: `APPROVING`은 PG 호출 직전에 lease를 남긴 상태다. 이 시점에는 아직 `pgTxId`가 DB에 없다.
+- **고민**: lease가 만료되었다고 결제 성공을 추정하면 금전 정합성 위험이 크다. 반대로 무조건 실패 처리하면 실제 PG가 승인했을 가능성을 완전히 모델링하지 못한다.
+- **결정**: `APPROVING` 상태에서 lease가 만료되고 `pgTxId`가 없으면 확정하지 않고 보상/실패로 처리한다.
+- **트레이드오프**: 실제 운영 PG라면 inquiry 또는 webhook/정산 대사 계약이 필요하다. 이번 구현에서는 승인 식별자가 없는 결제를 성공으로 간주하지 않는 보수적 정책을 택한다.
+- **추후 개선**: PG inquiry를 제대로 지원하려면 PG 호출 전 결제 시도 ID를 발급해 DB와 PG 요청 양쪽에 남겨야 한다.
 
 ## 6. Availability and Observability
 
-### D13. Redis admission 장애는 Fail-Closed다
+### D13. Redis admission 장애는 성공 처리하지 않는다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | Redis 없이 선착순 admission 순서를 보장하기 어렵다. |
-| 결정 | Redis 연결 실패, timeout, stock key missing은 503으로 거절한다. |
-| 근거 | 무제한 DB fallback은 피크 요청을 DB로 직격시킨다. |
+- **상황**: Redis가 장애이거나 stock key가 없으면 admission 순서를 판단할 수 없다.
+- **고민**: Redis 장애 때 DB-only fallback을 열면 피크 요청이 그대로 DB로 들어간다. 반대로 실패 처리하면 Redis 장애 동안 예약 성공률이 떨어진다.
+- **결정**: Redis 연결 실패, timeout, stock key missing은 503으로 거절한다.
+- **트레이드오프**: 가용성보다 정합성과 DB 보호를 우선한다. 무제한 fallback은 피크 상황에서 더 큰 장애로 이어질 수 있다.
 
-### D14. PG 호출은 Bulkhead, TimeLimiter, CircuitBreaker로 보호한다
+### D14. 외부 PG 호출은 별도 보호 계층으로 감싼다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | 느린 PG 호출이 예약 API 스레드를 고갈시킬 수 있다. |
-| 결정 | `ProtectedExternalPaymentGateway`에서 Resilience4j Bulkhead, TimeLimiter, CircuitBreaker를 적용한다. |
-| 근거 | 느린 호출은 timeout, 과도한 병렬 호출은 bulkhead, 반복 실패는 circuit open으로 차단한다. |
-| 설정 | bulkhead 20, timeout 2s, circuit window 10, minimum calls 5, failure threshold 50%, open duration 10s |
+- **상황**: PG 응답이 느려지거나 실패가 반복되면 예약 API 스레드가 대기 상태로 쌓일 수 있다.
+- **고민**: PG 성공률을 높이려고 오래 기다리면 예약 서버 자원이 고갈된다. 반대로 빨리 실패시키면 일부 결제 요청은 더 보수적으로 실패 처리된다.
+- **결정**: `ProtectedExternalPaymentGateway`에서 Resilience4j Bulkhead, TimeLimiter, CircuitBreaker를 적용한다.
+- **트레이드오프**: PG가 잠깐 느린 상황에서도 빠르게 실패할 수 있다. 대신 외부 장애가 예약 API 전체 장애로 번지는 것을 막는다.
+- **설정**: bulkhead 20, timeout 2s, circuit window 10, minimum calls 5, failure threshold 50%, open duration 10s
 
 ### D15. 로그는 JSON, 추적 키는 명시적으로 남긴다
 
-| 항목 | 내용 |
-|------|------|
-| 문제 | 장애 원인을 요청 단위로 추적해야 한다. |
-| 결정 | logstash encoder로 JSON 로그를 출력하고 API 에러 응답에 `traceId`를 포함한다. |
-| 근거 | `booking_requests` 상태와 로그를 함께 보면 실패 지점을 좁힐 수 있다. |
-
-### D16. 단일 애플리케이션 안에서 헥사고날 경계를 둔다
-
-| 항목 | 내용 |
-|------|------|
-| 문제 | 멀티모듈이나 MSA로 쪼개기에는 규모가 작지만, API/Redis/PG 구현이 유스케이스에 섞이면 변경 비용이 커진다. |
-| 결정 | modular monolith로 유지하되 `api -> application -> domain` 방향을 기본으로 하고, Redis/PG/scheduler는 application port를 구현하는 infra adapter로 둔다. |
-| 근거 | 배포 단위는 단순하게 유지하면서도 HTTP DTO, Redis Lua, Resilience4j, PG simulator 교체 영향을 application 경계 밖으로 제한할 수 있다. |
-| 검증 | ArchUnit으로 `domain -> api/application/infra`, `application -> api/infra` 의존을 금지한다. |
+- **상황**: 장애 원인을 요청 단위로 추적해야 한다.
+- **고민**: 단순 텍스트 로그만으로는 어떤 예약 요청이 어느 단계에서 멈췄는지 찾기 어렵다.
+- **결정**: logstash encoder로 JSON 로그를 출력하고 API 에러 응답에 `traceId`를 포함한다.
+- **트레이드오프**: 로그 설정과 필드 관리가 늘어난다. 대신 `booking_requests` 상태와 로그를 함께 보며 실패 지점을 좁힐 수 있다.

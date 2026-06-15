@@ -9,7 +9,7 @@ import com.example.staybooking.domain.booking.BookingStatus;
 import com.example.staybooking.domain.booking.PgStatus;
 import com.example.staybooking.domain.booking.StockRestoreStatus;
 import com.example.staybooking.domain.product.PromotionProductRepository;
-import com.example.staybooking.application.stock.StockGatePort;
+import com.example.staybooking.application.port.out.stock.StockGatePort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

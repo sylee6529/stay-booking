@@ -2,9 +2,9 @@ package com.example.staybooking.application.payment;
 
 import com.example.staybooking.application.error.ErrorCode;
 import com.example.staybooking.domain.payment.PaymentMethod;
-import com.example.staybooking.application.payment.port.ExternalPaymentGateway;
-import com.example.staybooking.application.payment.port.GatewayRequest;
-import com.example.staybooking.application.payment.port.GatewayResult;
+import com.example.staybooking.application.port.out.payment.ExternalPaymentGateway;
+import com.example.staybooking.application.port.out.payment.GatewayRequest;
+import com.example.staybooking.application.port.out.payment.GatewayResult;
 import org.springframework.stereotype.Component;
 
 /**
