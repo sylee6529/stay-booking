@@ -26,24 +26,36 @@
 
 ## 2. 주요 흐름
 
-```mermaid
-flowchart TB
-    subgraph Normal[정상 예약 경로]
-        Client[Client<br/>예약 요청] --> App[Spring Boot App<br/>검증 · 오케스트레이션]
-        App --> Redis[(Redis<br/>admission · 빠른 매진 판정)]
-        Redis --> MySQL[(MySQL<br/>멱등성 · 재고 예약 · 상태 저장)]
-        MySQL --> PG[Payment Gateway<br/>카드/Y페이 승인]
-        PG --> Confirm[(MySQL<br/>예약 확정 · 결제 기록)]
-    end
+**정상 예약 경로**
 
-    subgraph RecoveryFlow[실패/복구 경로]
-        Stopped[결제 실패<br/>또는 중간 중단] --> State[(MySQL<br/>중간 상태 기록)]
-        State --> Recovery[Recovery Job<br/>확정 재시도 · 보상 처리]
-        Recovery -.-> RedisRestore[(Redis<br/>재고 복구 best-effort)]
-    end
+```mermaid
+flowchart LR
+    Client[Client<br/>예약 요청]
+    App[Spring Boot App<br/>검증 · 오케스트레이션]
+    Redis[(Redis<br/>admission · 빠른 매진 판정)]
+    MySQL[(MySQL<br/>멱등성 · 재고 예약 · 상태 저장)]
+    PG[Payment Gateway<br/>카드/Y페이 승인]
+    Confirm[(MySQL<br/>예약 확정 · 결제 기록)]
+
+    Client --> App --> Redis --> MySQL --> PG --> Confirm
 ```
 
 예약 생성의 정상 경로는 Redis admission, MySQL 재고 예약, 외부 결제 승인, MySQL 예약 확정 순서로 진행됩니다.
+
+<br>
+
+**실패/복구 경로**
+
+```mermaid
+flowchart LR
+    Stopped[결제 실패<br/>또는 중간 중단]
+    State[(MySQL<br/>중간 상태 기록)]
+    Recovery[Recovery Job<br/>확정 재시도 · 보상 처리]
+    RedisRestore[(Redis<br/>재고 복구 best-effort)]
+
+    Stopped --> State --> Recovery
+    Recovery -.-> RedisRestore
+```
 
 Recovery Job은 `APPROVED`, `COMPENSATING`처럼 중간에 멈춘 요청을 다시 확인하고, 확정 재시도 또는 보상 처리 중 하나로 마무리합니다.
 
