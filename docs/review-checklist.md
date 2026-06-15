@@ -31,7 +31,7 @@
 - [x] **Fail-Closed 기본 정책** — 무제한 DB Fallback(30만 요청 직격), 전역 Rate Limit(공정성 훼손), 로컬 캐시(분산 정합성 불가), 메시지 큐(동기 응답 불가) 모두 탈락
 - [x] **제한적 DB-only degraded mode** — 부하테스트로 검증된 동시성 한도 안에서만 운영 옵션
 - [x] **공정성 해석**: 순수 선착순 + 시스템 개입 없음. Redis 단일 스레드 원자 처리가 서버 내부 순서 보장
-- [x] **제한적 Rate Limit**: 공정성/정합성 장치가 아니라 동일 사용자 과도 요청 방지용 자원 보호 장치
+- [x] **제한적 Rate Limit**: 공정성/정합성 장치가 아니라 동일 사용자 과도 요청 방지용 Redis fixed-window guard
 
 ### 재고
 - [x] `stock:` 키 TTL 없음
@@ -41,7 +41,7 @@
 ### 고가용성 설정
 - [x] HikariCP: `connection-timeout=3000`, `maximum-pool-size=20`
 - [x] Redis timeout: `2s`
-- [x] **Resilience4j**: PG 호출 Bulkhead + TimeLimiter + CircuitBreaker. RateLimiter는 제한적으로 적용
+- [x] **Resilience4j**: PG 호출 Bulkhead + TimeLimiter + CircuitBreaker. RateLimiter는 사용자 요청 보호용으로 별도 적용
 
 ## 남은 검토 항목
 
@@ -68,7 +68,7 @@
 - [x] **(10) 완료=200 재생, 진행중=409+status, 실패=원 응답 재생**: 구분 확정
 - [x] **(10) in-doubt API 계약**: 외부 API는 REQUEST_IN_PROGRESS로 통일, 내부 로그/상태에서만 IN_DOUBT 구분
 - [x] **(10) traceId**: 멱등키를 에러 봉투에 포함. 전 흐름 로그 연결
-- [x] **(11a) 단순 스키마**: `promotion_products` 하나에 상품/재고를 둔다. 과제 핵심 설명을 우선
+- [x] **(11a) 단순 스키마**: `promotion_products` 하나에 상품/재고를 둔다. 핵심 설명을 우선
 - [x] **(11b) schema.sql 사용**: Flyway는 운영 확장안으로만 남김
 
 ### 추가 확정 항목 (08/09/11)
@@ -77,7 +77,7 @@
 - [x] **(08) 명시적 컨텍스트 전달**: MDC 대신. 스레드 경계 누수 방지
 - [x] **(09) T1 = 재고 10 + 1000 동시 요청 → 정확히 10건**: 시스템 중심 증명. 핵심 3종(T1/T2/T3)
 - [x] **(09) in-doubt(T10)·STOCK_RESERVED 만료(T10-1)·보상 중복 방지(T13)** 시나리오 포함
-- [x] **(11) 단순 스키마 + schema.sql**: 초기 과제 제출물에 맞게 구현/설명 비용 축소
+- [x] **(11) 단순 스키마 + schema.sql**: 초기 제출물에 맞게 구현/설명 비용 축소
 - [x] **(11) 재고 수량 컬럼**: available/reserved/sold로 Redis sync와 진행 중 예약을 명확히 표현
 - [x] **(11) 보상 상태 컬럼**: points_refunded, stock_restore_status, point_history UNIQUE + pg_status/reservation/lease 추적
 

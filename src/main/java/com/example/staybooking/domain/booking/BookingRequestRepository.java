@@ -1,10 +1,12 @@
 package com.example.staybooking.domain.booking;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -13,6 +15,10 @@ public interface BookingRequestRepository extends JpaRepository<BookingRequest, 
 
     /** 멱등 재생/충돌 판정의 진입점. UNIQUE(user_id, idempotency_key)와 짝을 이룬다. */
     Optional<BookingRequest> findByUserIdAndIdempotencyKey(Long userId, String idempotencyKey);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM BookingRequest b WHERE b.id = :id")
+    Optional<BookingRequest> findByIdForUpdate(@Param("id") Long id);
 
     @Query("""
             SELECT b
@@ -99,6 +105,23 @@ public interface BookingRequestRepository extends JpaRepository<BookingRequest, 
                    b.pgTxId = :pgTxId,
                    b.updatedAt = :now
              WHERE b.id = :id
+               AND b.status = :expected
+            """)
+    int markApprovedFromStatus(@Param("id") Long id,
+                               @Param("expected") BookingStatus expected,
+                               @Param("status") BookingStatus status,
+                               @Param("pgStatus") PgStatus pgStatus,
+                               @Param("pgTxId") String pgTxId,
+                               @Param("now") LocalDateTime now);
+
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            UPDATE BookingRequest b
+               SET b.status = :status,
+                   b.pgStatus = :pgStatus,
+                   b.pgTxId = :pgTxId,
+                   b.updatedAt = :now
+             WHERE b.id = :id
             """)
     int markApproved(@Param("id") Long id,
                      @Param("status") BookingStatus status,
@@ -120,6 +143,23 @@ public interface BookingRequestRepository extends JpaRepository<BookingRequest, 
                           @Param("pgStatus") PgStatus pgStatus,
                           @Param("failureReason") String failureReason,
                           @Param("now") LocalDateTime now);
+
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            UPDATE BookingRequest b
+               SET b.status = :status,
+                   b.pgStatus = :pgStatus,
+                   b.failureReason = :failureReason,
+                   b.updatedAt = :now
+             WHERE b.id = :id
+               AND b.status = :expected
+            """)
+    int markPaymentFailedFromStatus(@Param("id") Long id,
+                                    @Param("expected") BookingStatus expected,
+                                    @Param("status") BookingStatus status,
+                                    @Param("pgStatus") PgStatus pgStatus,
+                                    @Param("failureReason") String failureReason,
+                                    @Param("now") LocalDateTime now);
 
     @Modifying(clearAutomatically = true)
     @Query("""

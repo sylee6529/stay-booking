@@ -26,6 +26,8 @@ public class AppProperties {
 
     private PgSimulator pgSimulator = new PgSimulator();
 
+    private UserRateLimit userRateLimit = new UserRateLimit();
+
     public boolean isStockSyncOnStartup() {
         return stockSyncOnStartup;
     }
@@ -64,6 +66,14 @@ public class AppProperties {
 
     public void setPgSimulator(PgSimulator pgSimulator) {
         this.pgSimulator = pgSimulator;
+    }
+
+    public UserRateLimit getUserRateLimit() {
+        return userRateLimit;
+    }
+
+    public void setUserRateLimit(UserRateLimit userRateLimit) {
+        this.userRateLimit = userRateLimit;
     }
 
     public static class Recovery {
@@ -171,6 +181,27 @@ public class AppProperties {
 
         public void setDelay(Duration delay) {
             this.delay = delay;
+        }
+    }
+
+    public static class UserRateLimit {
+        private int maxRequests = 5;
+        private Duration window = Duration.ofSeconds(1);
+
+        public int getMaxRequests() {
+            return maxRequests;
+        }
+
+        public void setMaxRequests(int maxRequests) {
+            this.maxRequests = maxRequests;
+        }
+
+        public Duration getWindow() {
+            return window;
+        }
+
+        public void setWindow(Duration window) {
+            this.window = window;
         }
     }
 }

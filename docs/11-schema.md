@@ -4,7 +4,7 @@
 
 ## 설계 원칙
 
-이 과제의 핵심은 스키마 진화 관리가 아니라 **재고 정합성, 멱등성, 결제 보상**이다.
+이 프로젝트의 핵심은 스키마 진화 관리가 아니라 **재고 정합성, 멱등성, 결제 보상**이다.
 따라서 상품과 재고는 하나의 `promotion_products` 테이블에 둔다.
 대신 재고 수량은 `available/reserved/sold`로 나누어 Redis 선점 후 진행 중인 수량까지 DB에 표현한다.
 
@@ -95,7 +95,7 @@ erDiagram
 
 ## 물리 FK
 
-과제 구현에서는 FK를 필수로 두지 않는다.
+현재 구현에서는 FK를 필수로 두지 않는다.
 
 본 제출물에서는 동시성 실험의 단순성과 테스트 격리를 위해 물리 FK는 생략한다.
 대신 애플리케이션 계층 검증, NOT NULL, UNIQUE, CHECK, 통합 테스트로 핵심 불변식을 검증한다.
@@ -137,11 +137,11 @@ Redis 재고 복구는 중복 INCR이 가장 위험하다. 따라서 boolean 하
 
 ## 스키마 관리
 
-과제 구현은 `schema.sql`을 사용한다.
+현재 구현은 `schema.sql`을 사용한다.
 
 - 초기 구현 1회 제출물에서는 Flyway 같은 versioned migration이 핵심 역량을 더 드러내지 못한다.
 - DDL을 파일로 명시하고 `ddl-auto=none`으로 두면 "코드 수정 없이 실행 가능한 소스" 요건을 만족한다.
-- 운영 환경이라면 Flyway를 도입해 변경 이력을 관리하는 것이 적절하지만, 이 과제에서는 운영 확장안으로만 남긴다.
+- 운영 환경이라면 Flyway를 도입해 변경 이력을 관리하는 것이 적절하지만, 현재는 운영 확장안으로만 남긴다.
 
 ## DDL (`schema.sql`)
 
@@ -248,7 +248,7 @@ CREATE TABLE IF NOT EXISTS point_history (
 
 ## 확정 사항 요약
 
-- [x] **단순 스키마**: `promotion_products` 하나에 상품/재고를 둔다. 과제 핵심 설명을 우선한다.
+- [x] **단순 스키마**: `promotion_products` 하나에 상품/재고를 둔다. 핵심 설명을 우선한다.
 - [x] **재고 수량 분리**: available/reserved/sold로 진행 중 선점 수량을 DB에 표현한다.
 - [x] **조건부 UPDATE**: `WHERE available_quantity > 0` reserve가 oversell 최후 방어선.
 - [x] **schema.sql 사용**: Flyway는 운영 확장안으로만 문서화한다.

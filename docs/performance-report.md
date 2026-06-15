@@ -23,13 +23,15 @@ k6 run -e BASE_URL=http://localhost:8080 -e PRODUCT_ID=1 load-test/booking.js
 
 | 시나리오 | 설정 | 요청/동시성 | 재고 | 응답 분포 | 처리량 | p95 / p99 | 최종 DB/Redis |
 |----------|------|-------------|------|-----------|--------|-----------|--------------|
-| baseline | PG delay 0, 정상 카드 | 1000 / 100 | 10 | 200=10, 409=990 | 602.30 req/s | 440ms / 563ms | sold=10, reserved=0, Redis=0 |
+| baseline | PG delay 0, 정상 카드 | 100 / 20 | 10 | expected status check 100% | 214.64 req/s | 255ms / - | sold=10, reserved=0, Redis=0 |
+| rate-limit | 같은 사용자, 서로 다른 멱등키 반복 | 20 / 1 | 10 | expected status check 100%, rate limited after burst check 100% | 32.71 req/s | 26ms / - | 서로 다른 새 시도는 429, 같은 키 반복은 멱등 재생 |
 | PG decline | PG delay 0, 거절 카드(`...0000`) | 100 / 20 | 100 | 422=100 | 97.90 req/s | 281ms / 295ms | sold=0, reserved=0, Redis=100 |
 | PG timeout/circuit | PG delay 2500ms, TimeLimiter 2s | 50 / 20 | 50 | 422=50 | 18.91 req/s | 2435ms / 2445ms | sold=0, reserved=0, Redis=50 |
 
 해석:
 
 - baseline은 Redis admission + DB 조건부 UPDATE가 oversell 없이 수렴함을 확인한다.
+- rate-limit은 같은 사용자의 서로 다른 새 결제 시도를 제한하되, 같은 멱등키 재시도는 막지 않는 정책을 확인한다.
 - PG decline은 외부 결제 거절이 보상 경로로 들어가 재고를 원복함을 확인한다.
 - PG timeout/circuit은 일부 요청이 TimeLimiter에 걸리고 이후 CircuitBreaker가 열리면서 후속 요청이 빠르게 실패한다. 그래서 p95/p99는 timeout 근처이고, 중간값은 circuit-open fast-fail 영향으로 낮아진다.
 - 모든 시나리오에서 reserved 재고가 남지 않았다.

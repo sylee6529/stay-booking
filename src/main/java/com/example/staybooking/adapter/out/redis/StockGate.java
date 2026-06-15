@@ -5,6 +5,7 @@ import com.example.staybooking.application.port.out.stock.StockGatePort;
 import com.example.staybooking.application.port.out.stock.StockGateUnavailableException;
 import com.example.staybooking.config.AppProperties;
 import org.springframework.dao.DataAccessException;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
@@ -28,7 +29,9 @@ public class StockGate implements StockGatePort {
     private final RedisScript<Long> admissionScript;
     private final AppProperties properties;
 
-    public StockGate(StringRedisTemplate redis, RedisScript<Long> admissionScript, AppProperties properties) {
+    public StockGate(StringRedisTemplate redis,
+                     @Qualifier("admissionScript") RedisScript<Long> admissionScript,
+                     AppProperties properties) {
         this.redis = redis;
         this.admissionScript = admissionScript;
         this.properties = properties;

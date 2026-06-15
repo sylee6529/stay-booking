@@ -184,7 +184,7 @@ Resilience4j는 재고 정합성이나 선착순 판정 장치가 아니다.
 - TimeLimiter: 외부 PG 시뮬레이터 호출이 오래 걸리면 빠르게 실패 처리한다.
 - Bulkhead: PG 호출 동시 실행 수를 제한해 예약 API 전체 스레드 고갈을 막는다.
 - CircuitBreaker: 짧은 시간 반복 실패가 발생하면 일정 시간 PG 호출을 차단해 후속 요청을 빠르게 실패시킨다.
-- RateLimiter: 동일 사용자/동일 클라이언트의 과도한 반복 요청을 429로 제한한다.
+- RateLimiter: 동일 사용자의 과도한 반복 요청을 Redis fixed-window로 429 제한한다.
 
 RateLimiter는 공정성 보장 수단이 아니다. 전역 선착순 순서를 임의로 자르는 방식으로 쓰지 않고,
 반복 클릭/자동 재시도 폭주가 서버 자원을 독점하지 못하게 하는 방어선으로만 사용한다.
@@ -204,6 +204,7 @@ RateLimiter는 공정성 보장 수단이 아니다. 전역 선착순 순서를 
 | CircuitBreaker failure threshold | 50% | 최근 호출의 절반 이상이 실패하면 PG 장애로 간주한다. 시뮬레이터의 거절/timeout 결과도 실패로 기록한다. |
 | CircuitBreaker open duration | 10s | 장애 PG를 짧게 차단하고, 이후 half-open으로 회복 가능성을 확인한다. 로컬 검증을 위해 짧게 두었고 운영에서는 PG 복구 특성에 맞춰 늘릴 수 있다. |
 | CircuitBreaker half-open permitted calls | 2 | 회복 확인 호출을 소량만 허용한다. 장애가 계속되면 다시 open되어 내부 자원 사용을 제한한다. |
+| User RateLimit | 5 new idempotency keys / 1s / user | 같은 멱등키 재시도는 제한하지 않는다. 서로 다른 새 결제 시도만 제한해 다중 탭/자동화/클라이언트 버그가 서버 자원을 독점하지 못하게 한다. |
 
 ## 수동 개입 경계
 
@@ -217,4 +218,4 @@ RateLimiter는 공정성 보장 수단이 아니다. 전역 선착순 순서를 
 - [x] **Fail-Closed 기본 정책**: Redis 장애 시 503 거절. 제한적 DB-only degraded mode는 부하테스트 근거가 있을 때만 운영 옵션
 - [x] **Recovery Job**: 30s 주기 / 60s stuck 판정 / 분산 중복 실행은 constraint로 안전
 - [x] **HikariCP**: connection-timeout 3초, pool-size 20
-- [x] **Resilience4j**: PG 호출 Bulkhead/TimeLimiter/CircuitBreaker, 제한적 RateLimiter는 자원 보호 목적으로 적용
+- [x] **Resilience4j**: PG 호출 Bulkhead/TimeLimiter/CircuitBreaker 적용. RateLimiter는 Redis 기반 사용자 요청 보호로 별도 적용

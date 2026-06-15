@@ -89,7 +89,7 @@ JSON 구조화 로그로 출력한다 (파싱·검색·집계 용이).
 |------|------|
 | `status = 'RECOVERY_NEEDED'` 건수 | 보상 실패 잔존 — 0이 정상 |
 | `status = 'APPROVED' AND updated_at < now - 60s` 건수 | 확정 직전 크래시 의심 — recovery 대상 |
-| `status = 'APPROVING' AND lease_expires_at < now()` 건수 | in-doubt — PG inquiry 대상 |
+| `status = 'APPROVING' AND lease_expires_at < now()` 건수 | in-doubt — 승인 식별자 없이 만료된 보상 대상 |
 | `status = 'COMPENSATING'` 장기 체류 | 보상 중 크래시 — recovery 대상 |
 | `available_quantity` vs Redis `stock:` | drift 감시 |
 

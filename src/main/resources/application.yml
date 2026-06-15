@@ -38,6 +38,9 @@ app:
     circuit-half-open-permitted-calls: 2
   pg-simulator:
     delay: 0s
+  user-rate-limit:
+    max-requests: 5
+    window: 1s
 
 ---
 spring:

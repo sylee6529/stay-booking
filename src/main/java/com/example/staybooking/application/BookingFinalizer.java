@@ -37,9 +37,14 @@ public class BookingFinalizer {
     @Transactional
     public BookingCreateResult confirm(BookingRequest request, PromotionProduct product,
                                        PaymentExecution paymentExecution, String traceId) {
+        BookingRequest locked = bookingRequests.findByIdForUpdate(request.getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.REQUEST_IN_PROGRESS));
         Booking existing = bookings.findByBookingRequestId(request.getId()).orElse(null);
         if (existing != null) {
             return new BookingCreateResult(existing.getId(), existing.getStatus());
+        }
+        if (locked.getStatus() != BookingStatus.APPROVED) {
+            throw new BusinessException(ErrorCode.REQUEST_IN_PROGRESS);
         }
 
         int confirmed = products.confirmOne(product.getId());

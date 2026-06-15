@@ -142,5 +142,5 @@ POST /internal/products/{productId}/stock-sync
 - [x] **request_hash 검증**: 같은 멱등키로 다른 payload가 오면 409
 - [x] **409 바디**: `{"status":"IN_PROGRESS"}` + `Retry-After` 헤더 포함
 - [x] **키 1회용**: 실패 응답 재생. 재시도는 새 키로 (Stripe 방식)
-- [x] **Rate Limit**: 자원 보호 목적의 429 RATE_LIMITED + Retry-After
+- [x] **Rate Limit**: 동일 사용자 반복 요청 보호 목적의 429 RATE_LIMITED + Retry-After
 - [x] **PG 보호**: PG 호출에 Bulkhead + TimeLimiter + CircuitBreaker 적용 (→ 07)

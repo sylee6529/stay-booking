@@ -13,6 +13,7 @@ public enum ErrorCode {
     RESERVATION_EXPIRED(409, "예약 선점 시간이 만료되었습니다."),
     REQUEST_IN_PROGRESS(409, "요청이 처리 중입니다."),
     IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD(409, "같은 멱등키로 다른 요청을 보낼 수 없습니다."),
+    RATE_LIMITED(429, "요청이 너무 많습니다."),
     STOCK_GATE_UNAVAILABLE(503, "재고 게이트를 사용할 수 없습니다."),
     PAYMENT_DECLINED(422, "결제가 거절되었습니다."),
     INSUFFICIENT_POINT(422, "포인트 잔액이 부족합니다."),

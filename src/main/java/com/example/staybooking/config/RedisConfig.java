@@ -13,4 +13,9 @@ public class RedisConfig {
     public RedisScript<Long> admissionScript() {
         return RedisScript.of(new ClassPathResource("redis/admission.lua"), Long.class);
     }
+
+    @Bean
+    public RedisScript<Long> rateLimitScript() {
+        return RedisScript.of(new ClassPathResource("redis/rate_limit.lua"), Long.class);
+    }
 }

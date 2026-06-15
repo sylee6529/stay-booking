@@ -4,10 +4,16 @@ import com.example.staybooking.application.booking.BookingCreateCommand;
 import com.example.staybooking.application.booking.BookingCreateResult;
 import com.example.staybooking.application.error.BusinessException;
 import com.example.staybooking.application.error.ErrorCode;
+import com.example.staybooking.application.error.IdempotencyReplayException;
+import com.example.staybooking.application.error.RateLimitExceededException;
 import com.example.staybooking.application.payment.PaymentCommand;
 import com.example.staybooking.application.payment.PaymentContext;
 import com.example.staybooking.application.payment.PaymentExecution;
 import com.example.staybooking.application.payment.PaymentOrchestrator;
+import com.example.staybooking.application.port.out.idempotency.CachedIdempotencyResponse;
+import com.example.staybooking.application.port.out.idempotency.IdempotencyCachePort;
+import com.example.staybooking.application.port.out.ratelimit.RateLimitResult;
+import com.example.staybooking.application.port.out.ratelimit.UserRateLimiterPort;
 import com.example.staybooking.domain.booking.Booking;
 import com.example.staybooking.domain.booking.BookingRepository;
 import com.example.staybooking.domain.booking.BookingRequest;
@@ -35,11 +41,14 @@ public class BookingService {
     private final BookingRequestStore requestStore;
     private final BookingFinalizer finalizer;
     private final BookingCompensationService compensationService;
+    private final IdempotencyCachePort idempotencyCache;
+    private final UserRateLimiterPort userRateLimiter;
 
     public BookingService(PromotionProductRepository products, BookingRequestRepository bookingRequests,
                           BookingRepository bookings, StockGatePort stockGate, PaymentOrchestrator paymentOrchestrator,
                           BookingRequestHasher hasher, BookingRequestStore requestStore,
-                          BookingFinalizer finalizer, BookingCompensationService compensationService) {
+                          BookingFinalizer finalizer, BookingCompensationService compensationService,
+                          IdempotencyCachePort idempotencyCache, UserRateLimiterPort userRateLimiter) {
         this.products = products;
         this.bookingRequests = bookingRequests;
         this.bookings = bookings;
@@ -49,9 +58,16 @@ public class BookingService {
         this.requestStore = requestStore;
         this.finalizer = finalizer;
         this.compensationService = compensationService;
+        this.idempotencyCache = idempotencyCache;
+        this.userRateLimiter = userRateLimiter;
     }
 
     public BookingCreateResult create(String idempotencyKey, BookingCreateCommand request) {
+        RateLimitResult rateLimit = userRateLimiter.acquire(request.userId(), idempotencyKey);
+        if (!rateLimit.allowed()) {
+            throw new RateLimitExceededException(rateLimit.retryAfterSeconds());
+        }
+
         PromotionProduct product = products.findById(request.productId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
         if (!product.isOpen(LocalDateTime.now())) {
@@ -62,6 +78,11 @@ public class BookingService {
         PaymentCommand validationCommand = paymentCommand(request, amount, -1L);
         paymentOrchestrator.validate(validationCommand);
         String requestHash = hasher.hash(request, amount);
+
+        idempotencyCache.findCachedResponse(request.userId(), idempotencyKey, requestHash)
+                .ifPresent(cached -> {
+                    throw new IdempotencyReplayException(cached.httpStatus(), cached.responseBody());
+                });
 
         AdmissionResult admission = admit(product.getId(), request.userId(), idempotencyKey);
         if (admission.outcome() == AdmissionResult.Outcome.DUPLICATE) {
@@ -82,13 +103,18 @@ public class BookingService {
         requestStore.markApproving(bookingRequest.getId());
         PaymentExecution payment = paymentOrchestrator.pay(paymentCommand(request, amount, bookingRequest.getId()));
         if (!payment.success()) {
-            requestStore.markPaymentFailed(bookingRequest.getId(), payment.failureCode(), payment.failureReason());
-            compensationService.compensate(bookingRequest.getId(), payment.failureCode(), idempotencyKey);
+            if (requestStore.markPaymentFailed(bookingRequest.getId(), payment.failureCode(), payment.failureReason())) {
+                compensationService.compensate(bookingRequest.getId(), payment.failureCode(), idempotencyKey);
+            }
             throw new BusinessException(payment.failureCode(), payment.failureReason());
         }
 
-        requestStore.markApproved(bookingRequest.getId(), payment.transactionId());
-        return finalizer.confirm(bookingRequest, product, payment, idempotencyKey);
+        if (!requestStore.markApproved(bookingRequest.getId(), payment.transactionId())) {
+            return replayOrInProgress(request.userId(), idempotencyKey, requestHash);
+        }
+        BookingCreateResult result = finalizer.confirm(bookingRequest, product, payment, idempotencyKey);
+        idempotencyCache.cacheResponse(request.userId(), idempotencyKey, requestHash, 200, responseJson(result));
+        return result;
     }
 
     private AdmissionResult admit(long productId, long userId, String idempotencyKey) {
@@ -111,7 +137,16 @@ public class BookingService {
         if (existing.getStatus() == BookingStatus.CONFIRMED) {
             Booking booking = bookings.findByBookingRequestId(existing.getId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.REQUEST_IN_PROGRESS));
-            return new BookingCreateResult(booking.getId(), "CONFIRMED");
+            BookingCreateResult result = new BookingCreateResult(booking.getId(), "CONFIRMED");
+            idempotencyCache.cacheResponse(userId, idempotencyKey, requestHash, 200, responseJson(result));
+            return result;
+        }
+        if (existing.getStatus().isTerminal()
+                && existing.getResponseCode() != null
+                && existing.getResponseBody() != null) {
+            idempotencyCache.cacheResponse(userId, idempotencyKey, requestHash,
+                    existing.getResponseCode(), existing.getResponseBody());
+            throw new IdempotencyReplayException(existing.getResponseCode(), existing.getResponseBody());
         }
         throw new BusinessException(ErrorCode.REQUEST_IN_PROGRESS);
     }
@@ -122,5 +157,11 @@ public class BookingService {
                 amount,
                 request.pointAmount(),
                 new PaymentContext(request.userId(), bookingRequestId, request.cardNumber(), request.ypayToken()));
+    }
+
+    private String responseJson(BookingCreateResult response) {
+        return """
+                {"bookingId":%d,"status":"%s"}
+                """.formatted(response.bookingId(), response.status()).trim();
     }
 }

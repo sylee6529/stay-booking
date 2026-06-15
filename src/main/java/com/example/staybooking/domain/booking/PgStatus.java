@@ -12,7 +12,7 @@ public enum PgStatus {
     APPROVED,
     /** PG 승인 거절 */
     DECLINED,
-    /** lease 만료 등으로 승인 여부 불명 — Recovery Job inquiry 대상 */
+    /** lease 만료 등으로 승인 여부 불명 — 현재 구현은 성공으로 보지 않고 보상한다 */
     IN_DOUBT,
     /** 보상으로 승인 취소됨 */
     CANCELED

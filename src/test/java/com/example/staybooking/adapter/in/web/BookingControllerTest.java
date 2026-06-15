@@ -119,6 +119,57 @@ class BookingControllerTest extends IntegrationTestSupport {
     }
 
     @Test
+    void 같은_멱등키_반복은_RateLimit_카운트를_증가시키지_않고_멱등_재생한다() throws Exception {
+        long productId = newProduct(2);
+        stockSyncService.sync(productId);
+        long userId = System.nanoTime();
+        String key = "rate-same-key-" + userId;
+
+        String firstBody = mockMvc.perform(post("/api/bookings")
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cardRequest(productId, userId)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        for (int i = 0; i < 10; i++) {
+            mockMvc.perform(post("/api/bookings")
+                            .header("Idempotency-Key", key)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(cardRequest(productId, userId)))
+                    .andExpect(status().isOk())
+                    .andExpect(result -> assertThat(result.getResponse().getContentAsString()).isEqualTo(firstBody));
+        }
+
+        assertThat(bookings.findAll().stream()
+                .filter(b -> b.getProductId().equals(productId) && b.getUserId().equals(userId))
+                .count()).isEqualTo(1);
+    }
+
+    @Test
+    void 같은_사용자가_서로_다른_멱등키로_짧은_시간에_반복하면_429를_반환한다() throws Exception {
+        long productId = newProduct(10);
+        stockSyncService.sync(productId);
+        long userId = System.nanoTime();
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/bookings")
+                            .header("Idempotency-Key", "rate-new-key-" + userId + "-" + i)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(cardRequest(productId, userId)))
+                    .andExpect(status().isOk());
+        }
+
+        mockMvc.perform(post("/api/bookings")
+                        .header("Idempotency-Key", "rate-new-key-" + userId + "-blocked")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cardRequest(productId, userId)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("RATE_LIMITED"))
+                .andExpect(result -> assertThat(result.getResponse().getHeader("Retry-After")).isNotBlank());
+    }
+
+    @Test
     void 같은_멱등키로_다른_payload를_보내면_409를_반환한다() throws Exception {
         long productId = newProduct(2);
         long otherProductId = newProduct(2);

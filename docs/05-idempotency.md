@@ -25,7 +25,7 @@
 
 ```
 [1-a] Redis GET idem:{userId}:{key}
-      → 완료 캐시 존재: 기존 응답 재생
+      → request_hash가 같은 완료 캐시 존재: 기존 응답 재생
 
 [1-b] Redis admission Lua
       - admission:{userId}:{key} 중복 확인
@@ -38,7 +38,7 @@
       request_hash 저장
       → unique 충돌: 기존 요청 조회 후 request_hash 검증 + 멱등 재생
 
-[1-d] 완료 후 Redis SET idem:{userId}:{key} (TTL 24h, best-effort)
+[1-d] 완료 후 Redis SET idem:{userId}:{key} = request_hash + status + response_body (TTL 24h, best-effort)
 ```
 
 핵심 순서: **Redis admission이 DB INSERT보다 먼저다.**
@@ -93,10 +93,8 @@ step A 커밋 시:
 
 Recovery Job 주기 스캔:
   WHERE status = 'APPROVING' AND lease_expires_at < now()
-  → PG inquiry() 호출
-    승인 확인됨 → step C부터 재개 (APPROVED + pg_tx_id)
-    미승인 확인됨 → Saga 보상 → FAILED
-    PG도 모름    → 보상 → FAILED (안전 방향)
+  → 승인 식별자(pg_tx_id)가 없으면 성공으로 보지 않고 보상 → FAILED
+  → 승인 식별자(pg_tx_id)가 저장된 APPROVED는 확정 재시도 → CONFIRMED
 ```
 
 이 lease + recovery가 있어야 클라이언트 계약이 닫힌다:
@@ -106,10 +104,10 @@ Recovery Job 주기 스캔:
 
 - `idem:{key}` Redis TTL: **24h**
 - DB UNIQUE 제약은 만료 없음 — **영구 보증**
-- Redis TTL의 유일한 역할: 메모리 관리. 만료 = "캐시 미스 → DB 조회"일 뿐 정합성과 무관
+- Redis 멱등성 캐시 TTL의 유일한 역할: 메모리 관리. 만료 = "캐시 미스 → DB 조회"일 뿐 정합성과 무관
 - 제약: TTL ≫ Recovery Job 최대 정산 윈도우 (24h는 충분)
 
-"DB UNIQUE가 영구 보증, Redis TTL은 성능 최적화"
+"DB UNIQUE가 영구 보증, Redis 완료 응답 캐시는 성능 최적화"
 
 ## 멱등성이 지키는 범위
 
@@ -132,4 +130,4 @@ Recovery Job 주기 스캔:
 - [x] **상태 3분류**: IN_PROGRESS / SUCCEEDED / BUSINESS_FAILED. in-doubt는 굳히지 않음
 - [x] **실패 키 1회용**: 같은 키 = 항상 같은 응답. 재시도는 새 키로
 - [x] **lease + Recovery Job**: 고아 IN_PROGRESS를 유한 시간 안에 정착. 클라이언트 계약 닫힘
-- [x] **TTL 24h**: DB UNIQUE가 영구 보증, Redis TTL은 성능
+- [x] **Redis 완료 응답 캐시 TTL 24h**: DB UNIQUE가 영구 보증, Redis TTL은 성능 최적화

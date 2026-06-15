@@ -1,5 +1,7 @@
 package com.example.staybooking.adapter.out.redis;
 
+import com.example.staybooking.application.port.out.idempotency.CachedIdempotencyResponse;
+import com.example.staybooking.application.port.out.idempotency.IdempotencyCachePort;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -14,9 +16,10 @@ import java.util.Optional;
  * (admission Lua 실패와 달리 Fail-Closed 대상이 아니다 — docs/05, docs/07).
  */
 @Component
-public class IdempotencyGate {
+public class IdempotencyGate implements IdempotencyCachePort {
 
     private static final Duration TTL = Duration.ofHours(24);
+    private static final String DELIMITER = "\n";
 
     private final StringRedisTemplate redis;
 
@@ -25,18 +28,31 @@ public class IdempotencyGate {
     }
 
     /** 완료 응답 캐시 조회. 캐시 미스/Redis 실패면 {@link Optional#empty()} → 호출자는 DB로 폴백. */
-    public Optional<String> findCachedResponse(long userId, String idempotencyKey) {
+    @Override
+    public Optional<CachedIdempotencyResponse> findCachedResponse(long userId, String idempotencyKey,
+                                                                  String requestHash) {
         try {
-            return Optional.ofNullable(redis.opsForValue().get(idemKey(userId, idempotencyKey)));
+            String raw = redis.opsForValue().get(idemKey(userId, idempotencyKey));
+            if (raw == null) {
+                return Optional.empty();
+            }
+            String[] parts = raw.split(DELIMITER, 3);
+            if (parts.length != 3 || !parts[0].equals(requestHash)) {
+                return Optional.empty();
+            }
+            return Optional.of(new CachedIdempotencyResponse(Integer.parseInt(parts[1]), parts[2]));
         } catch (DataAccessException e) {
             return Optional.empty();
         }
     }
 
     /** 완료 응답 캐시 기록 (TTL 24h, best-effort). Redis 실패는 삼킨다. */
-    public void cacheResponse(long userId, String idempotencyKey, String responseBody) {
+    @Override
+    public void cacheResponse(long userId, String idempotencyKey, String requestHash,
+                              int httpStatus, String responseBody) {
         try {
-            redis.opsForValue().set(idemKey(userId, idempotencyKey), responseBody, TTL);
+            String value = requestHash + DELIMITER + httpStatus + DELIMITER + responseBody;
+            redis.opsForValue().set(idemKey(userId, idempotencyKey), value, TTL);
         } catch (DataAccessException ignored) {
             // 캐시는 성능용. 실패해도 DB가 진실이므로 무시한다.
         }

@@ -26,7 +26,7 @@ Redis가 틀려도(장애, drift) DB의 unique constraint와 조건부 UPDATE가
                        │ 재고 admission│  │ 재고 예약/확정      │
                        │ (Lua 원자)  │  │ (조건부 UPDATE)   │
                        │ 멱등성 캐시 │  │ 멱등성 진실        │
-                       │            │  │ (unique key)      │
+                       │ 사용자 요청 제한│ │ (unique key)      │
                        │            │  │ 예약/결제/상태머신  │
                        └────────────┘  └──────────────────┘
                          탈락 트래픽 흡수    admission 통과 요청만 기록
@@ -70,13 +70,13 @@ com.example.staybooking
 
 | 항목 | 선택 | 핵심 근거 (상세는 각 문서) |
 |------|------|---------------------------|
-| 분산 환경 | 동일 앱 서버 Scale-out (MSA 아님) | 과제 "2대 이상 앱 서버" = 수평 확장. MSA는 분산 트랜잭션 문제를 추가하고 과제 규모 대비 과설계 |
+| 분산 환경 | 동일 앱 서버 Scale-out (MSA 아님) | "2대 이상 앱 서버" 요구는 수평 확장으로 해석. MSA는 분산 트랜잭션 문제를 추가하고 현재 범위 대비 과설계 |
 | 데이터 접근 | JPA + 동시성 민감 갱신은 조건부 벌크 UPDATE | 일반 영속화는 JPA가 생산적. 재고·포인트는 read-modify-write가 lost update에 취약 → `UPDATE ... WHERE 조건` 원자 갱신 (→ 04) |
 | 재고 admission | Redis Lua 스크립트 | GET+DECR 분리 시 비원자. Lua는 admission 중복 확인과 재고 차감을 한 동작으로 처리 (→ 04) |
 | 멱등성 | Redis admission/cache + DB unique | 진실은 DB(`UNIQUE(user_id, idempotency_key)`), Redis는 피크 중복 폭주와 매진 초과 요청 흡수 (→ 05) |
 | Redis 장애 | **Fail-Closed** | 로컬 캐시는 분산 환경 정합성 불가. 전역 Rate Limit은 공정성 훼손. DB Fallback은 30만 요청 직격 위험. 세 가지 모두 불가 → 명시적 서비스 중단 (→ 07) |
 | 고가용성 보호 | HikariCP 타임아웃 단축 + Resilience4j Bulkhead/TimeLimiter/CircuitBreaker | DB 커넥션 대기, PG 지연, 반복 PG 실패가 서버 스레드를 오래 점유하지 않게 제한 (→ 07) |
-| 요청 보호 | 제한적 Rate Limit | 당첨 순서/정합성 장치가 아니라 동일 사용자 과도 요청을 막는 자원 보호 장치 (→ 07, 10) |
+| 요청 보호 | Redis fixed-window Rate Limit | 당첨 순서/정합성 장치가 아니라 동일 사용자 과도 요청을 막는 자원 보호 장치 (→ 07, 10) |
 | 복구 | 상태 머신 + 보상 + recovery job | 외부 효과(결제)는 롤백 불가 → 보상 + 상태 영속화로 수렴 (→ 07) |
 
 ## 포기한 것과 이유

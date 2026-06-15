@@ -67,15 +67,19 @@ public class BookingRequestStore {
     }
 
     @Transactional
-    public void markApproved(Long bookingRequestId, String pgTxId) {
-        bookingRequests.markApproved(bookingRequestId, BookingStatus.APPROVED, PgStatus.APPROVED,
+    public boolean markApproved(Long bookingRequestId, String pgTxId) {
+        int updated = bookingRequests.markApprovedFromStatus(bookingRequestId, BookingStatus.APPROVING,
+                BookingStatus.APPROVED, PgStatus.APPROVED,
                 pgTxId, LocalDateTime.now());
+        return updated == 1;
     }
 
     @Transactional
-    public void markPaymentFailed(Long bookingRequestId, ErrorCode code, String reason) {
-        bookingRequests.markPaymentFailed(bookingRequestId, BookingStatus.PAYMENT_FAILED, PgStatus.DECLINED,
+    public boolean markPaymentFailed(Long bookingRequestId, ErrorCode code, String reason) {
+        int updated = bookingRequests.markPaymentFailedFromStatus(bookingRequestId, BookingStatus.APPROVING,
+                BookingStatus.PAYMENT_FAILED, PgStatus.DECLINED,
                 reason == null ? code.getMessage() : reason, LocalDateTime.now());
+        return updated == 1;
     }
 
     @Transactional

@@ -33,7 +33,8 @@
 | T7 | Redis 장애 (Fail-Closed) | 503 STOCK_GATE_UNAVAILABLE, 예약/결제 0건, 상태 REJECTED | 닫힌 포트 컨텍스트 |
 | T8 | DB unique 중복 방어 | 같은 idempotency_key 직접 INSERT 2회 → constraint violation | 리포지토리 레벨 |
 | T9 | 확정 직전 크래시 복구 | APPROVED로 멈춘 요청 → recovery 실행 → CONFIRMED + 예약 생성 | 상태 직접 조작 후 RecoveryService 호출 |
-| T10 | in-doubt 정산 (lease 만료) | APPROVING + lease 만료 → PG inquiry → SUCCEEDED 정착 또는 보상 | 상태/lease 직접 조작 후 recovery 호출 |
+| T10 | in-doubt 정산 (lease 만료) | APPROVING + lease 만료 → 승인 식별자 없음 → 보상 | 상태/lease 직접 조작 후 recovery 호출 |
+| T10-2 | 사용자 RateLimit | 같은 사용자 + 다른 idempotencyKey 6회/1s → 429 RATE_LIMITED, 같은 key 반복은 멱등 재생 | Redis fixed-window guard |
 | T10-1 | PG 호출 전 선점 만료 | STOCK_RESERVED + reservation 만료 → reserved release 또는 NEEDS_SYNC | 상태/만료 직접 조작 후 recovery 호출 |
 | T11 | 포인트 부족 | INSUFFICIENT_POINT 거절, Redis 재고 복구 | |
 | T12 | 확정 단계 DB 매진(SOLD_OUT_DB) | 결제 취소됨, REJECTED, oversell 없음 | Redis 재고를 DB보다 부풀려 drift 재현 |
@@ -54,7 +55,7 @@
 ## 부하 테스트와 병목 관찰
 
 부하 테스트는 운영 TPS 보장을 위한 성능 인증이 아니다.
-로컬/과제 환경에서 설계상 병목이 DB 재고 row, Redis 게이트, PG 지연, RateLimiter 중 어디에 있는지
+로컬 실행 환경에서 설계상 병목이 DB 재고 row, Redis 게이트, PG 지연, RateLimiter 중 어디에 있는지
 관찰하고 README/DECISIONS.md에 근거로 남기기 위한 자료다.
 
 - 도구: k6 스크립트(`load-test/booking.js`)를 사용한다. 실행 환경에는 k6 설치가 필요하다.
