@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: stay-booking
+  datasource:
+    url: jdbc:mysql://localhost:3306/staybooking
+    username: app
+    password: app1234
+    hikari:
+      maximum-pool-size: 20      # Hikari가 열 수 있는 실제 DB 커넥션 상한. 로컬 부하 기준선으로 사용
+      connection-timeout: 3000   # pool 대기 상한. 포화 시 오래 붙잡지 않고 빠르게 실패시키기 위한 값
+      max-lifetime: 600000
+  jpa:
+    hibernate:
+      ddl-auto: none # 스키마의 진실은 schema.sql (DDL을 코드 생성에 맡기지 않는다)
+    open-in-view: false
+  sql:
+    init:
+      mode: always # schema.sql 은 IF NOT EXISTS 라 반복 실행에 안전
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2s # Fail-Closed 정책: 길게 기다리지 않고 빠르게 실패를 판정한다 (DECISIONS.md D4)
+
+app:
+  recovery:
+    enabled: true
+    # APPROVED 로 이 시간 이상 머문 요청은 "확정 직전 크래시"로 간주하고 복구 대상에 올린다
+    stuck-threshold: 60s
+  pg-protection:
+    max-concurrent-calls: 20
+    max-wait-duration: 0s
+    timeout: 2s
+    circuit-sliding-window-size: 10
+    circuit-minimum-number-of-calls: 5
+    circuit-failure-rate-threshold: 50
+    circuit-open-duration: 10s
+    circuit-half-open-permitted-calls: 2
+  pg-simulator:
+    delay: 0s
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  sql:
+    init:
+      data-locations: classpath:data-local.sql
+
+app:
+  stock-sync-on-startup: true # 데모 편의용. 운영에서는 운영자 트리거(/internal API)로만 실행한다 (D7)

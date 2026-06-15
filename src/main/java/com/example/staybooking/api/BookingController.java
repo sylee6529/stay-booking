@@ -1,0 +1,37 @@
+package com.example.staybooking.api;
+
+import com.example.staybooking.api.dto.BookingCreateRequest;
+import com.example.staybooking.api.dto.BookingCreateResponse;
+import com.example.staybooking.api.error.BusinessException;
+import com.example.staybooking.api.error.ErrorCode;
+import com.example.staybooking.application.BookingService;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api")
+public class BookingController {
+
+    private final BookingService bookingService;
+
+    public BookingController(BookingService bookingService) {
+        this.bookingService = bookingService;
+    }
+
+    @PostMapping("/bookings")
+    public ResponseEntity<BookingCreateResponse> create(
+            @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody BookingCreateRequest request) {
+        if (!StringUtils.hasText(idempotencyKey)) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "Idempotency-Key 헤더가 필요합니다.");
+        }
+        BookingCreateResponse response = bookingService.create(idempotencyKey, request);
+        return ResponseEntity.ok(response);
+    }
+}
