@@ -30,12 +30,12 @@
 
 ```mermaid
 flowchart LR
-    Client[Client<br/>예약 요청]
-    App[Spring Boot App<br/>검증 · 오케스트레이션]
-    Redis[(Redis<br/>admission · 빠른 매진 판정)]
-    MySQL[(MySQL<br/>멱등성 · 재고 예약 · 상태 저장)]
-    PG[Payment Gateway<br/>카드/Y페이 승인]
-    Confirm[(MySQL<br/>예약 확정 · 결제 기록)]
+    Client["Client\n예약 요청"]
+    App["Spring Boot App\n검증/오케스트레이션"]
+    Redis[("Redis\nadmission/매진 판정")]
+    MySQL[("MySQL\n멱등성/재고 예약/상태 저장")]
+    PG["Payment Gateway\n카드/Y페이 승인"]
+    Confirm[("MySQL\n예약 확정/결제 기록")]
 
     Client --> App --> Redis --> MySQL --> PG --> Confirm
 ```
@@ -48,10 +48,10 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    Stopped[결제 실패<br/>또는 중간 중단]
-    State[(MySQL<br/>중간 상태 기록)]
-    Recovery[Recovery Job<br/>확정 재시도 · 보상 처리]
-    RedisRestore[(Redis<br/>재고 복구 best-effort)]
+    Stopped["결제 실패\n또는 중간 중단"]
+    State[("MySQL\n중간 상태 기록")]
+    Recovery["Recovery Job\n확정 재시도/보상 처리"]
+    RedisRestore[("Redis\n재고 복구 best-effort")]
 
     Stopped --> State --> Recovery
     Recovery -.-> RedisRestore
