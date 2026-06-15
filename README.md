@@ -40,7 +40,7 @@ flowchart LR
     Client --> App --> Redis --> MySQL --> PG --> Confirm
 ```
 
-예약 생성의 정상 경로는 Redis admission, MySQL 재고 예약, 외부 결제 승인, MySQL 예약 확정 순서로 진행됩니다.
+예약 생성의 정상 경로는 admission, 재고 예약, 결제 승인, 예약 확정 순서로 진행됩니다.
 
 <br>
 
